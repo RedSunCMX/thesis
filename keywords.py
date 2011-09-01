@@ -40,7 +40,7 @@ def freqWords(string,int,line):
             word = fdist[j-1:j]
             wordList.append(str(word[0]))
     csv = open('db\cyttron-keywords.csv','a')
-    csv.write('"' + str(wordList) + '";')
+    csv.write('"' + ', '.join(wordList[:-1]) + ', ' + wordList[-1] + '";')
     csv.close()
     
 def wordCollo(string):
@@ -64,7 +64,7 @@ def wordCollo(string):
         else:
             biList=[]
     csv = open('db\cyttron-keywords.csv','a')            
-    csv.write('"' + str(biList) + '";')
+    csv.write('"' + ', '.join(biList[:-1]) + ', ' + biList[-1] + '";')
     csv.close()
     
     for i in range(len(triResult)):
@@ -74,7 +74,7 @@ def wordCollo(string):
         else:
             triList=[]
     csv = open('db\cyttron-keywords.csv','a')
-    csv.write('"' + str(triList) + '"\n')
+    csv.write('"' + ', '.join(triList[:-1]) + ', ' + triList[-1] + '"\n')
     csv.close()
 
 def readResults():
