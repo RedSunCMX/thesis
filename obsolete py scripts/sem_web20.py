@@ -69,7 +69,7 @@ class Tweet:
         self.path = []
 		
 def startTwitter():
-    api = twitter.Api(consumer_key='x',consumer_secret='x',access_token_key='348964168-x',access_token_secret='x')
+    api = twitter.Api(consumer_key='x',consumer_secret='x',access_token_key='x',access_token_secret='x')
     ver = api.VerifyCredentials()
     print "logged in as",ver.screen_name
     friends = api.GetFriends()
