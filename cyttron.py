@@ -450,4 +450,8 @@ def cleanCSV(csvread):
     print "Group entries:",total2,"total",len(group),"unique"
     print "Priv entries:",total3,"total",len(priv),"unique"
 
-cleanCSV(csvread)
+def main():
+    cleanCSV(csvread)
+
+if __name__ == '__main__':
+    main()
