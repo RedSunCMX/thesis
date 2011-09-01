@@ -50,38 +50,8 @@ pub=[]
 group=[]
 priv=[]
 
-def switchEndpoint():
-    global endpoint
-    if endpoint == "http://localhost:8080/openrdf-sesame/repositories/Cyttron_DB":
-        endpoint = "http://localhost:8080/openrdf-sesame/repositories/dbp"
-        print "Switched SPARQL endpoint to DBPedia:",endpoint
-        exit
-    else:
-        endpoint = "http://localhost:8080/openrdf-sesame/repositories/Cyttron_DB"
-        print "Switched SPARQL endpoint to Cyttron DB:",endpoint
-        exit
-
-def cleanCSV(csvread):
-    global pub,group,priv
-    for line in csvread:
-        if len(line[0]) > 0:
-            pub.append(line[0])
-        if len(line[1]) > 0:
-            group.append(line[1])
-        if len(line[2]) > 0:
-            priv.append(line[2])
-    total1 = len(pub)
-    total2 = len(group)
-    total3 = len(priv)
-    pub = list(set(pub))
-    group = list(set(group))
-    priv = list(set(priv))
-    print "Public entries:",total1,"total",len(pub),"unique"
-    print "Group entries:",total2,"total",len(group),"unique"
-    print "Priv entries:",total3,"total",len(priv),"unique"
-
 #======================================================#
-# Fill a list of Label:URI values                      #
+# Fill a list of Label:URI values (Cyttron_DB)         #
 #======================================================#
 def getLabels():
     global label,sparql,endpoint
@@ -125,7 +95,7 @@ def getLabels():
     print "After cleaning: Filled list: label. With:",str(len(label)),"entries"
     
 #======================================================#
-# Fill a list of Desc:URI values                       #
+# Fill a list of Desc:URI values (Cyttron_DB)          #
 #======================================================#
 def getDescs():
     global desc,sparql,endpoint
@@ -214,6 +184,10 @@ def wordMatch(string):
     print "Found",len(foundUnique),"unique labels"
     print "and",len(foundTotal),"total labels"
         
+#======================================================#
+# Scan a string, generate syns for each word           #
+# wordMatch syn-string                                 #
+#======================================================#
 def wordNetWordMatch(string):
     newString = ""
     string = nltk.word_tokenize(string)
@@ -229,6 +203,9 @@ def wordNetWordMatch(string):
         newString += word
     wordMatch(newString)
 
+#======================================================#
+# Use Difflib to calculate similarity of strings       #
+#======================================================#
 def descMatch(string,int):
     "Returns the x most similar descriptions"
     temp=[]
@@ -247,7 +224,10 @@ def descMatch(string,int):
         fd.write('";"' + str(foundDesc[i][0]) + '";"' + str(foundDesc[i][1]))
     fd.write('"\n')
     fd.close()
-    
+
+#======================================================#
+# Generate syns from string, difflib similarity        #
+#======================================================#    
 def descWordNetMatch(string,int):
     newString = ""
     string = nltk.word_tokenize(string)
@@ -261,9 +241,41 @@ def descWordNetMatch(string,int):
         word = ', '.join(synonyms)
         # print currentWord+str(":"),word
         newString += word
-    descMatch(newString,int)    
+    descMatch(newString,int)
+    
 #======================================================#
-# Find superClasses of a URI                           #
+# CyttronDB-specific functions to process lists        #
+#======================================================#        
+def listWordMatch(list):
+    for i in range(len(list)):
+        string = list[i]
+        print str(i+1),"of",str(len(list))
+        wordMatch(string)
+        print ""
+
+def listWordNetMatch(list):
+    for i in range(len(list)):
+        string = list[i]
+        print str(i+1),"of",str(len(list))
+        wordNetWordMatch(string)
+        print ""
+
+def listDescMatch(list,int):
+    for i in range(len(list)):
+        string = list[i]
+        print str(i+1),"of",str(len(list))
+        descMatch(string,int)
+        print ""
+
+def listWordNetDescMatch(list,int):
+    for i in range(len(list)):
+        string = list[i]
+        print str(i+1),"of",str(len(list))
+        descWordNetMatch(string,int)
+        print ""
+    
+#======================================================#
+# 'shared parents' WIP stuff                           #
 #======================================================#
 def findParents(URI):
     # In: list with list(s) of URIs [[URI1,URI2,URI3]]
@@ -357,7 +369,7 @@ def findLabels(pathList):
     return list_out
 
 #======================================================#
-# Return 2 lists of triples: to/from URI               #
+# ExploreContext WIP stuff (TODO: fetch all literals)  #
 #======================================================#
 def exploreContext(URI):
 # Retrieve all relations a node has with its surroundings, and its surroundings to the node.
@@ -396,33 +408,35 @@ def exploreContext(URI):
         for x in results["results"]["bindings"]:
             contextIn.append([x["o"]["value"],out[i],URI])
     return contextIn,contextOut
+    
+def switchEndpoint():
+    global endpoint
+    if endpoint == "http://localhost:8080/openrdf-sesame/repositories/Cyttron_DB":
+        endpoint = "http://localhost:8080/openrdf-sesame/repositories/dbp"
+        print "Switched SPARQL endpoint to DBPedia:",endpoint
+        exit
+    else:
+        endpoint = "http://localhost:8080/openrdf-sesame/repositories/Cyttron_DB"
+        print "Switched SPARQL endpoint to Cyttron DB:",endpoint
+        exit
 
-def listWordMatch(list):
-    for i in range(len(list)):
-        string = list[i]
-        print str(i+1),"of",str(len(list))
-        wordMatch(string)
-        print ""
-
-def listWordNetMatch(list):
-    for i in range(len(list)):
-        string = list[i]
-        print str(i+1),"of",str(len(list))
-        wordNetWordMatch(string)
-        print ""
-
-def listDescMatch(list,int):
-    for i in range(len(list)):
-        string = list[i]
-        print str(i+1),"of",str(len(list))
-        descMatch(string,int)
-        print ""
-
-def listWordNetDescMatch(list,int):
-    for i in range(len(list)):
-        string = list[i]
-        print str(i+1),"of",str(len(list))
-        descWordNetMatch(string,int)
-        print ""
+def cleanCSV(csvread):
+    global pub,group,priv
+    for line in csvread:
+        if len(line[0]) > 0:
+            pub.append(line[0])
+        if len(line[1]) > 0:
+            group.append(line[1])
+        if len(line[2]) > 0:
+            priv.append(line[2])
+    total1 = len(pub)
+    total2 = len(group)
+    total3 = len(priv)
+    pub = list(set(pub))
+    group = list(set(group))
+    priv = list(set(priv))
+    print "Public entries:",total1,"total",len(pub),"unique"
+    print "Group entries:",total2,"total",len(group),"unique"
+    print "Priv entries:",total3,"total",len(priv),"unique"
 
 cleanCSV(csvread)
