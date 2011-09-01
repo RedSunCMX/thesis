@@ -27,20 +27,18 @@ def freqWords(string,int,line):
     stopset = set(stopwords.words('english'))
     words = nltk.word_tokenize(string)
     wordsCleaned = [word.lower() for word in words if word.lower() not in stopset and len(word) > 2]
-    # print "\nWords:",len(words),"\t",
-    # print "Cleaned:",len(wordsCleaned)
-    # print "\n",line
-    # print "Keywords:",
     fdist = FreqDist(wordsCleaned).keys()
     if len(wordsCleaned) < int:
         int = len(wordsCleaned)-1
-        print "too few words, trying",int,
     if int > 0:
         for j in range(1,int):
             word = fdist[j-1:j]
             wordList.append(str(word[0]))
     csv = open('db\cyttron-keywords.csv','a')
-    csv.write('"' + ', '.join(wordList[:-1]) + ', ' + wordList[-1] + '";')
+    if len(wordList) > 1:
+        csv.write('"' + ', '.join(wordList[:-1]) + ', ' + wordList[-1] + '";')
+    else:
+        csv.write('"' + ''.join(wordList) + '";')
     csv.close()
     
 def wordCollo(string):
@@ -64,7 +62,10 @@ def wordCollo(string):
         else:
             biList=[]
     csv = open('db\cyttron-keywords.csv','a')            
-    csv.write('"' + ', '.join(biList[:-1]) + ', ' + biList[-1] + '";')
+    if len(biList) > 1:
+        csv.write('"' + ', '.join(biList[:-1]) + ', ' + biList[-1] + '";')
+    else:
+        csv.write('"' + ''.join(biList) + '";')
     csv.close()
     
     for i in range(len(triResult)):
@@ -74,7 +75,10 @@ def wordCollo(string):
         else:
             triList=[]
     csv = open('db\cyttron-keywords.csv','a')
-    csv.write('"' + ', '.join(triList[:-1]) + ', ' + triList[-1] + '"\n')
+    if len(triList) > 1:
+        csv.write('"' + ', '.join(triList[:-1]) + ', ' + triList[-1] + '"\n')
+    else:
+        csv.write('"' + ''.join(triList) + '"\n')
     csv.close()
 
 def readResults():
