@@ -366,69 +366,6 @@ def findLabels(pathList):
     return list_out
 
 #======================================================#
-# ExploreContext WIP stuff (TODO: fetch all literals)  #
-#======================================================#
-def exploreContext(URI):
-# Retrieve all relations a node has with its surroundings, and its surroundings to the node.
-    print ""
-    global contextIn,contextOut,endpoint
-    inList=[]
-    out=[]
-    sparql = SPARQLWrapper(endpoint)
-    querystring="SELECT DISTINCT ?p WHERE { <" + str(URI) + "> ?p ?s . }"
-    print querystring
-    sparql.setReturnFormat(JSON)
-    sparql.addCustomParameter("infer","false")
-    sparql.setQuery(querystring)
-    results = sparql.query().convert()
-    for x in results["results"]["bindings"]:
-        out.append(x["p"]["value"])
-    print "out",out
-    querystring="SELECT DISTINCT ?p WHERE { ?o ?p <" + str(URI) + "> . }"
-    sparql.setQuery(querystring)
-    results = sparql.query().convert()
-    for x in results["results"]["bindings"]:
-        inList.append(x["p"]["value"])
-    print "in",inList
-
-    for i in range(len(out)):
-        querystring="SELECT DISTINCT ?s WHERE { <" + str(URI) + "> <" + str(out[i]) + "> ?s . }"
-        sparql.setQuery(querystring)
-        results = sparql.query().convert()
-        for x in results["results"]["bindings"]:
-            contextOut.append([URI,out[i],x["s"]["value"]])
-    for i in range(len(inList)):
-        querystring="SELECT DISTINCT ?o WHERE { ?o <" + str(inList[i]) + "> <" + str(URI) + "> . }"
-        print querystring
-        sparql.setQuery(querystring)
-        results = sparql.query().convert()
-        for x in results["results"]["bindings"]:
-            contextIn.append([x["o"]["value"],out[i],URI])
-
-    print "\nFinding literalsIn (?literal property URI)"
-    for i in range(len(contextIn)):
-        getLiterals(contextIn[i][0])
-    print "\nFinding literalsOut (URI property ?literal)"
-    for i in range(len(contextOut)):
-        if 'http://' in contextOut[i][2]:
-            getLiterals(contextOut[i][2])
-
-def getLiterals(URI):
-    global contextIn,contextOut,endpoint
-    txt=[]
-    sparql = SPARQLWrapper(endpoint)
-    querystring="SELECT DISTINCT ?txt WHERE { <" + str(URI) + "> ?p ?txt . FILTER (isLiteral(?txt)) }"
-    # print querystring
-    sparql.setReturnFormat(JSON)
-    sparql.addCustomParameter("infer","false")
-    sparql.setQuery(querystring)
-    results = sparql.query().convert()
-    for x in results["results"]["bindings"]:
-        txt.append(x["txt"]["value"])
-    if len(txt)>0:
-        print txt
-
-#======================================================#
 # Retrieve Wiki page raw text                          #
 #======================================================# 
 def wikiGet(title):
