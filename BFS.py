@@ -35,13 +35,15 @@ def BFS(URI1,URI2,q):
         #print "Current path:",curr_path
         for i in range(len(curr_path)):
             if len(curr_path) > 1:
-                if curr_path[i] not in visited:
                     if curr_path[i][0] not in visited:
                         node = curr_path[i][0]
                     else:
+                        print curr_path[i][0],"IS IN THE LIST visited!!!!"
                         node = curr_path[i][1]
             else:
                 node = curr_path[0]
+        if node in visited:
+            node = "Empty :S"
         print "Node:",node
         visited.append(node)
         print "Visited:",visited
@@ -61,7 +63,7 @@ def getNodes(URI):
     results = sparql.query().convert()
     for x in results["results"]["bindings"]:
         context.append([URI,x["s"]["value"]])
-    querystring="SELECT DISTINCT ?o WHERE { ?o ?p <" + str(URI) + "> . FILTER (!isURI(?o )) }"
+    querystring="SELECT DISTINCT ?o WHERE { ?o ?p <" + str(URI) + "> . FILTER (isURI(?o )) }"
     print querystring
     sparql.setQuery(querystring)
     results = sparql.query().convert()
