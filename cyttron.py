@@ -11,6 +11,8 @@ from fuzzywuzzy import fuzz
 from SPARQLWrapper import SPARQLWrapper,JSON
 from difflib import SequenceMatcher
 from pprint import pprint
+import urllib, urllib2
+from BeautifulSoup import BeautifulSoup
 
 # sparql-lists
 label = []
@@ -33,6 +35,8 @@ repo="Cyttron_DB"
 endpoint="http://" + comp + ":8080/openrdf-sesame/repositories/" + repo
 
 sparql = SPARQLWrapper(endpoint)
+
+wikiTxt=""
 
 f = open('log\wordMatch.csv','w')
 f.write('"string";"# total labels";"total labels";"# unique labels";"unique labels"'+ "\n")
@@ -374,7 +378,7 @@ def exploreContext(URI):
     inList=[]
     out=[]
     sparql = SPARQLWrapper(endpoint)
-    querystring="SELECT DISTINCT ?p ?label WHERE { <" + str(URI) + "> ?p ?s . }"
+    querystring="SELECT DISTINCT ?p WHERE { <" + str(URI) + "> ?p ?s . }"
     print querystring
     sparql.setReturnFormat(JSON)
     sparql.addCustomParameter("infer","false")
@@ -391,20 +395,63 @@ def exploreContext(URI):
     print "in",inList
 
     for i in range(len(out)):
-        querystring="SELECT DISTINCT ?s ?label WHERE { <" + str(URI) + "> <" + str(out[i]) + "> ?s . FILTER ( !isBlank(?s) ) }"
+        querystring="SELECT DISTINCT ?s WHERE { <" + str(URI) + "> <" + str(out[i]) + "> ?s . }"
         sparql.setQuery(querystring)
         results = sparql.query().convert()
         for x in results["results"]["bindings"]:
             contextOut.append([URI,out[i],x["s"]["value"]])
     for i in range(len(inList)):
-        querystring="SELECT DISTINCT ?o WHERE { ?o <" + str(inList[i]) + "> <" + str(URI) + "> . FILTER ( !isBlank(?o) )}"
+        querystring="SELECT DISTINCT ?o WHERE { ?o <" + str(inList[i]) + "> <" + str(URI) + "> . }"
         print querystring
         sparql.setQuery(querystring)
         results = sparql.query().convert()
         for x in results["results"]["bindings"]:
             contextIn.append([x["o"]["value"],out[i],URI])
-    return contextIn,contextOut
-    
+
+    print "\nFinding literalsIn (?literal property URI)"
+    for i in range(len(contextIn)):
+        getLiterals(contextIn[i][0])
+    print "\nFinding literalsOut (URI property ?literal)"
+    for i in range(len(contextOut)):
+        if 'http://' in contextOut[i][2]:
+            getLiterals(contextOut[i][2])
+
+def getLiterals(URI):
+    global contextIn,contextOut,endpoint
+    txt=[]
+    sparql = SPARQLWrapper(endpoint)
+    querystring="SELECT DISTINCT ?txt WHERE { <" + str(URI) + "> ?p ?txt . FILTER (isLiteral(?txt)) }"
+    # print querystring
+    sparql.setReturnFormat(JSON)
+    sparql.addCustomParameter("infer","false")
+    sparql.setQuery(querystring)
+    results = sparql.query().convert()
+    for x in results["results"]["bindings"]:
+        txt.append(x["txt"]["value"])
+    if len(txt)>0:
+        print txt
+
+#======================================================#
+# Retrieve Wiki page raw text                          #
+#======================================================# 
+def wikiGet(title):
+    global wikiTxt
+    article = urllib.quote(title)
+
+    opener = urllib2.build_opener()
+    opener.addheaders = [('User-agent', 'Mozilla/5.0')] #wikipedia needs this
+
+    resource = opener.open("http://en.wikipedia.org/wiki/" + article)
+    data = resource.read()
+    resource.close()
+    soup = BeautifulSoup(data)
+    text = str(soup.findAll('p'))
+    wikiTxt = nltk.clean_html(text)
+    print title,'in wikiTxt'
+
+#======================================================#
+# Stuff                                                #
+#======================================================# 
 def switchEndpoint():
     global endpoint,comp,repo
     if repo == "Cyttron_DB":

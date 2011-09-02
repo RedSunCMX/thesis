@@ -86,11 +86,8 @@ def readResults():
     results = csv.reader(open('db\cyttron-keywords.csv', 'rb'), delimiter=';')
     for line in results:
         if len(line[0])>0:
-            print line[0],
             keywordList.append(line[0])
         if len(line[1])>0:
-            print line[1],
             bigramList.append(line[1])
         if len(line[2])>0:
-            print line[2]
             trigramList.append(line[2])

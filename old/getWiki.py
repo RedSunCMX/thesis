@@ -8,5 +8,6 @@ def get(title):
 	params = {'action':'query', 'prop':'revisions', 'rvprop':'content', 'format':'xml', 'titles':title }
 	request = api.APIRequest(site,params)
 	result = request.query()
+	print result
 	clean = nltk.clean_html(str(result))
 	pprint(clean)
