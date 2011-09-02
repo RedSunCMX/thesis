@@ -4,10 +4,7 @@ from nltk import word_tokenize, wordpunct_tokenize, pos_tag
 from nltk.collocations import BigramCollocationFinder
 from nltk.metrics import BigramAssocMeasures
 from nltk.corpus import stopwords, wordnet
-import rdflib
 import re
-import fuzzywuzzy
-from fuzzywuzzy import fuzz
 from SPARQLWrapper import SPARQLWrapper,JSON
 from difflib import SequenceMatcher
 from pprint import pprint
