@@ -5,13 +5,14 @@ from nltk.collocations import BigramCollocationFinder,TrigramCollocationFinder
 from nltk.metrics import BigramAssocMeasures,TrigramAssocMeasures
 from nltk.chunk import RegexpParser
 import csv
+from pprint import pprint
 
 csvwrite = file('db\cyttron-keywords.csv', 'wb')
 keywordList = []
 bigramList = []
 trigramList = []
 
-#Exctract wordFreq,bi/tri-grams. Store them in CSV
+#Extract wordFreq,bi/tri-grams. Store them in CSV
 def extractKeywords(list):
     csv = open('db\cyttron-keywords.csv','a')
     csv.write('"keywords";"bigrams";"trigrams"\n')
@@ -21,7 +22,7 @@ def extractKeywords(list):
         freqWords(currentEntry,10,i)
         wordCollo(list[i])
 
-def freqWords(string,int,line):
+def freqWords(string,int):
     global pub
     wordList=[]
     stopset = set(stopwords.words('english'))
@@ -39,6 +40,7 @@ def freqWords(string,int,line):
         csv.write('"' + ', '.join(wordList[:-1]) + ', ' + wordList[-1] + '";')
     else:
         csv.write('"' + ''.join(wordList) + '";')
+    pprint(wordList)
     csv.close()
     
 def wordCollo(string):
@@ -67,6 +69,7 @@ def wordCollo(string):
     else:
         csv.write('"' + ''.join(biList) + '";')
     csv.close()
+    pprint(biList)
     
     for i in range(len(triResult)):
         if len(triResult) > 0:
@@ -80,6 +83,7 @@ def wordCollo(string):
     else:
         csv.write('"' + ''.join(triList) + '"\n')
     csv.close()
+    pprint(triList)
 
 def readResults():
     global keywordList,bigramList,trigramList
