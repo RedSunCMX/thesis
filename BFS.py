@@ -39,13 +39,11 @@ def BFS(URI1,URI2,q):
                 node1 = curr_path[i][0]
                 node2 = curr_path[i][2]
                 if node1 == URI2:
-                    print "Found a link in hop",len(queue)-1
-                    return queue
-                    showPath(queue,URI2)
+                    print "\nFound a link in hop",len(queue)-1
+                    showPath(queue,URI1,URI2)
                 if node2 == URI2:
-                    print "Found a link in hop",len(queue)-1
-                    return queue
-                    showPath(queue,URI2)
+                    print "\nFound a link in hop",len(queue)-1
+                    showPath(queue,URI1,URI2)
                 if node1 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node1:
                     node = node1
                     visited.append(node)
@@ -79,18 +77,40 @@ def qPath(URI,URI2,hops):
             FILTER (isURI(?s )) }"""
     # print querystring    
 
-def showPath(list,target):
+def showPath(list,start,target):
     newList=[]
-    for i in range(len(list)):
-        hop = list[i]
-        #print "Hop:",i,"-",pprint(hop)
-        print ""
-        newList.append(list[i])
-        for j in range(len(hop)):
-            node = hop[j]
-            print node
-            if node == target:
-                return newList
+    for x in range(len(list),0,-1):
+        if x-1 > 1:
+            hop = list[x-1]
+            print x-1,
+            for i in range(len(hop)):
+                leftNode = hop[i][0]
+                rightNode = hop[i][2]
+                if leftNode == target:
+                    print hop[i]
+                    newList.append(hop[i])
+                    target = rightNode
+                    break
+                if rightNode == target:
+                    print hop[i]
+                    newList.append(hop[i])
+                    target = leftNode
+                    break
+        if x-1 == 1:
+            hop = list[x-1]
+            print x-1,
+            for i in range(len(hop)):
+                leftNode = hop[i][0]
+                rightNode = hop[i][2]
+                if leftNode == start and rightNode == target:
+                    print hop[i]
+                    newList.append(hop[i])
+                    return newList
+                if rightNode == start and leftNode == target:
+                    print hop[i]
+                    newList.append(hop[i])
+                    return newList
+            
 
 def getNodes(URI,URI2):
     global context
