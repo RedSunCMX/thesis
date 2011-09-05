@@ -84,7 +84,6 @@ def getDescs():
     # GO + DOID + MPATH
     sparql.setQuery("""
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
         PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
 
@@ -126,6 +125,7 @@ def wordMatch(string):
             for i in range(countLabel):
                 foundTotal.append(currentLabel)
     foundLabel.sort(reverse=True)
+    print foundLabel
     f = open('log\wordMatch.csv','a')
     if len(foundTotal) > 0:
         if len(foundTotal) > 1:
@@ -141,7 +141,9 @@ def wordMatch(string):
             f.write('1";"' + (foundUnique[0]) + '"' + "\n")        
     else:
         f.write('0";""' + "\n")
-    f.close()    
+    f.close()
+    print foundUnique
+    print foundTotal
     print "Found",len(foundUnique),"unique labels"
     print "and",len(foundTotal),"total labels"
         

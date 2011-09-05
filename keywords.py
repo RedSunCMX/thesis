@@ -22,6 +22,14 @@ def extractKeywords(list):
         freqWords(currentEntry,10,i)
         wordCollo(list[i])
 
+def descKeywords(list):
+    for i in range(len(list)):
+        currentEntry = str(list[i][0])
+        print currentEntry
+        freqWords(currentEntry,25)
+        wordCollo(currentEntry)
+        print " "
+
 def freqWords(string,int):
     global pub
     wordList=[]
@@ -40,7 +48,7 @@ def freqWords(string,int):
         csv.write('"' + ', '.join(wordList[:-1]) + ', ' + wordList[-1] + '";')
     else:
         csv.write('"' + ''.join(wordList) + '";')
-    pprint(wordList)
+    print wordList
     csv.close()
     
 def wordCollo(string):
@@ -69,7 +77,7 @@ def wordCollo(string):
     else:
         csv.write('"' + ''.join(biList) + '";')
     csv.close()
-    pprint(biList)
+    print biList
     
     for i in range(len(triResult)):
         if len(triResult) > 0:
@@ -83,7 +91,7 @@ def wordCollo(string):
     else:
         csv.write('"' + ''.join(triList) + '"\n')
     csv.close()
-    pprint(triList)
+    print triList
 
 def readResults():
     global keywordList,bigramList,trigramList
