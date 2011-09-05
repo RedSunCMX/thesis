@@ -321,7 +321,8 @@ def findLabels(pathList):
         for j in range(len(pathList[i])):
             sparql = SPARQLWrapper(endpoint)
             sparql.addCustomParameter("infer","false")
-            querystring = 'PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> SELECT DISTINCT ?label WHERE { <' + pathList[i][j] + '> rdfs:label ?label . }'
+            querystring = 'PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> SELECT DISTINCT ?label WHERE { <' + str(pathList[i][j]) + '> rdfs:label ?label . }'
+            print querystring
         sparql.setReturnFormat(JSON)
         sparql.setQuery(querystring)
         results = sparql.query().convert()
