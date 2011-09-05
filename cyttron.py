@@ -322,13 +322,14 @@ def findLabels(pathList):
             sparql = SPARQLWrapper(endpoint)
             sparql.addCustomParameter("infer","false")
             querystring = 'PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> SELECT DISTINCT ?label WHERE { <' + str(pathList[i][j]) + '> rdfs:label ?label . }'
-            print querystring
         sparql.setReturnFormat(JSON)
         sparql.setQuery(querystring)
         results = sparql.query().convert()
+        print str(pathList[i][j]),
         for x in results["results"]["bindings"]:
             list_out.append(x["label"]["value"])
-    sentence = " is a ".join(list_out) + "."
+            print x["label"]["value"]
+    sentence = " is a superClass of ".join(list_out) + "."
     print sentence
     return list_out
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import signal
 import apscheduler
 from apscheduler.scheduler import Scheduler
@@ -11,6 +10,8 @@ from nltk import pos_tag
 from nltk.corpus import wordnet
 import random
 import logging
+from pprint import pprint
+import httplib
 logging.basicConfig()
 
 endpoint = "http://dbpedia.org/sparql"
@@ -36,7 +37,6 @@ label = []
 conceptSearch = []
 pos=[]
 
-api = twitter.Api(consumer_key='x',consumer_secret='x',access_token_key='x',access_token_secret='x')
 ver = api.VerifyCredentials()
 print "logged in as",ver.screen_name
 friends = api.GetFriends()
@@ -69,7 +69,6 @@ class Tweet:
         self.path = []
 		
 def startTwitter():
-    api = twitter.Api(consumer_key='x',consumer_secret='x',access_token_key='x',access_token_secret='x')
     ver = api.VerifyCredentials()
     print "logged in as",ver.screen_name
     friends = api.GetFriends()
@@ -87,44 +86,19 @@ def randomFriend():
     pos = nltk.pos_tag(words)
 
 def getConcepts():
+    concepts = SPARQLWrapper("http://dvdgrs-900:8080/openrdf-sesame/repositories/dbp")
+    concepts.setReturnFormat(JSON)
     print ""
     global concept
     concept = []
-    querystring = 'select distinct ?concept ?label where {?concept rdfs:isDefinedBy <http://dbpedia.org/ontology/> . ?concept rdfs:label ?label . ?x a ?concept . filter( langMatches( lang(?label), "en")||(!langMatches(lang(?label),"*")) )}'
-    sparql.setQuery(querystring)
-    results = sparql.query().convert()
+    querystring = 'PREFIX owl: <http://www.w3.org/2002/07/owl#> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> select ?concept ?label where { ?concept rdfs:label ?label . ?concept a owl:Class . filter( langMatches( lang(?label), "en")||(!langMatches(lang(?label),"*")) )}'
+    concepts.addCustomParameter("infer","false")
+    concepts.setQuery(querystring)
+    results = concepts.query().convert()
     for x in results["results"]["bindings"]:
         concept.append([x["concept"]["value"],x["label"]["value"]])
     print "Retrieved",len(concept),"concepts."
-
-def nounSyn():
-# Retrieve nouns from tweet
-    print ""
-    global URI, found
-    found = []
-    list=[]
-    n=0
-    tag_prefix = 'NN'
-    for i in range(len(pos)):
-        tag = pos[i][1]
-        word = pos[i][0].rstrip('.,:;')
-        # if word is a NOUN, query DBPedia for its occurrence
-        if tag.startswith(tag_prefix):
-            print word
-            querystring = 'SELECT DISTINCT ?URI WHERE { ?URI ?p "' + word.rstrip('.,:";') + '" . }'
-            print querystring
-            sparql.setQuery(querystring)
-            results = sparql.query().convert()
-            for x in results["results"]["bindings"]:
-                if 'dbpedia.org' in x["URI"]["value"]:
-                    found.append(x["URI"]["value"])
-                    print x["URI"]["value"]
-    found = dict.fromkeys(found)
-    found = found.keys()
-    found.sort()
-    print "\n",len(found),"concepts found.\n"
-    URI = found
-    return URI
+    pprint(concept)
 
 def randomTweet():
     global t
@@ -211,6 +185,47 @@ def findConcept(t):
         print "[findConcept]\t","No concept called",t.conceptString,"found :(...\n"
         exit
 
+def findWord(string):
+    string = string[0].upper() + string[1:len(string)]
+    conn = httplib.HTTPConnection('en.wikipedia.org')
+    conn.request("GET","/wiki/" + string)
+    if str(conn.getresponse().status) == '200':
+        print string,
+        print 'http://dbpedia.org/resource/' + string
+
+def findWord2(string)
+    querystring = '''
+	SELECT ?s ?l count(?s) as ?count WHERE {
+	?someobj ?p ?s .
+	?s <http://www.w3.org/2000/01/rdf-schema#label> ?l .
+	?l bif:contains "''' + string + '''" .
+	FILTER (!regex(str(?s), '^http://dbpedia.org/resource/Category:')).
+	FILTER (!regex(str(?s), '^http://dbpedia.org/resource/List')).
+	FILTER (!regex(str(?s), '^http://sw.opencyc.org/')).
+	FILTER (lang(?l) = 'en').
+	FILTER (!isLiteral(?someobj)).
+	} ORDER BY DESC(?count) LIMIT 20
+	'''
+
+def findWords(words):
+    list=[]
+    for i in range(len(words)):
+        string = words[i]
+        string = string[0].upper() + string[1:len(string)]
+        conn = httplib.HTTPConnection('en.wikipedia.org')
+        conn.request("GET","/wiki/" + string)
+        if str(conn.getresponse().status) == '200':
+            list.append('http://dbpedia.org/resource/' + string)
+    for i in range(len(list)):
+        querystring='SELECT DISTINCT ?s WHERE { <' + str(list[i]) + '> dbpedia-owl:wikiPageDisambiguates ?s .}'
+        print list[i]
+        sparql.setQuery(querystring)
+        results = sparql.query().convert()
+        for x in results["results"]["bindings"]:
+            list.append(x["s"]["value"])
+    print len(list)
+    return list
+
 def findParents(URI):
     # In: list with list(s) of URIs [[URI1,URI2,URI3]]
     global iup, pathList
@@ -238,6 +253,40 @@ def findParents(URI):
         pathList = URI
         exit
 
+def findCommonParents(URI1,URI2):
+    # Input URI strings, output common Parent
+    print ""
+    URI1 = [[URI1]]
+    URI2 = [[URI2]]
+    iup = 0
+    global result1,result2,pathList,parent1,parent2
+
+    # First pathList generation
+    findParents(URI1)
+    print "[findCommonP]\t","1st URI processed\n"
+    result1 = pathList
+    
+    # Flush results for 2nd
+    pathList = []
+
+    # Second pathList generation
+    findParents(URI2)
+    print "[findCommonP]\t","2nd URI processed\n"
+    result2 = pathList
+
+    for i in range(len(result1)):
+        for j in range(len(result2)):
+            for i2 in range(len(result1[i])):
+                for j2 in range(len(result2[j])):
+                    if set(result1[i][i2]) == set(result2[j][j2]):
+                        print "[findCommonP]\t","CommonParent found!"
+                        print "[findCommonP]\t","Result1[" + str(i) + "][" + str(i2) +"]",
+                        print "matches with result2[" +str(j) + "][" + str(j2) + "]"
+                        print "[findCommonP]\t",result1[i][i2]
+                        parent1 = result1
+                        parent2 = result2
+    return parent1,parent2
+
 def findChildren(URI):
     print ""
     global idown, pathList
@@ -264,40 +313,6 @@ def findChildren(URI):
         idown=0
         pathList = URI
         exit
-
-def findCommonParents(URI1,URI2):
-    # Input URI strings, output common Parent
-    print ""
-    URI1 = [[URI1]]
-    URI2 = [[URI2]]
-    iup = 0
-    global result1,result2,pathList
-
-    # First pathList generation
-    findParents(URI1)
-    print "[findCommonP]\t","1st URI processed\n"
-    result1 = pathList
-    
-    # Flush results for 2nd
-    pathList = []
-
-    # Second pathList generation
-    findParents(URI2)
-    print "[findCommonP]\t","2nd URI processed\n"
-    result2 = pathList
-
-    for i in range(len(result1)):
-        for j in range(len(result2)):
-            for i2 in range(len(result1[i])):
-                for j2 in range(len(result2[j])):
-                    if set(result1[i][i2]) == set(result2[j][j2]):
-                        print "[findCommonP]\t","CommonParent found!"
-                        print "[findCommonP]\t","Result1[" + str(i) + "][" + str(i2) +"]",
-                        print "[findCommonP]\t","matches with result2[" +str(j) + "][" + str(j2) + "]"
-                        print "[findCommonP]\t",result1[i][i2]
-                        print "[findCommonP]\t",result2[j][j2]
-    # Display
-    return result1,result2
 
 def exploreContext(URI):
 # Retrieve all relations a node has with its surroundings, and its surroundings to the node.
@@ -402,15 +417,6 @@ def mention(nick,string):
     else:
         print "[mention]\t","Nothing to post..."
         exit
-
-def findThing(string):
-    print ""
-    querystring = 'SELECT ?x WHERE { ?x rdfs:label ?label . ?x a ?y . FILTER (regex(?label, "' + string + '")) . }'
-    print querystring
-    sparql.setQuery(querystring)
-    results = sparql.query().convert()
-    for x in results:
-        print x
 
 def checkPublic():
     print ""
@@ -568,6 +574,19 @@ def findVal(t):
         t.property = t.propList[rand]
         print "[findVal]\t",t.property
         findVal(t)
+
+def getLabels():
+    global label
+    label = []
+    i = 0
+    for i in range(0,3000000,2000):
+        querystring = 'select distinct ?label where {?o rdfs:label ?label . filter( langMatches( lang(?label), "en")||(!langMatches(lang(?label),"*")) )} OFFSET ' + str(i)
+        print querystring
+        sparql.setQuery(querystring)
+        results = sparql.query().convert()
+        for x in results["results"]["bindings"]:
+            label.append(x["label"]["value"])
+    print "Retrieved",len(label),"labels."
 		
 getConcepts()
 sched = Scheduler()

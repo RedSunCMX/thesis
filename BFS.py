@@ -28,6 +28,9 @@ class MyQUEUE:
 
 def BFS(URI1,URI2,q):
     global queue,visited
+    queue=[]
+    visited=[]
+    
     q.enqueue([URI1])
     
     while q.IsEmpty() == False:
@@ -92,18 +95,18 @@ def showPath(list,start,target):
                 if leftNode == start and rightNode == target:
                     print hop[i]
                     newList.append(hop[i])
-                    return newList
+                    print newList                    
                 if rightNode == start and leftNode == target:
                     print hop[i]
                     newList.append(hop[i])
-                    return newList
+                    print newList
 
 def getNodes(URI,URI2):
     global context
     context=[]
     sparql = SPARQLWrapper('http://dvdgrs-900:8080/openrdf-sesame/repositories/cyttron')
-    querystring="SELECT DISTINCT ?p ?s WHERE { <" + str(URI) + "> ?p ?s . FILTER (isURI(?s )) }"
-    # print querystring
+    querystring="SELECT DISTINCT ?p ?s WHERE { <" + str(URI) + "> ?p ?s . FILTER (isURI(?s ))  }"
+    print URI
     sparql.setReturnFormat(JSON)
     sparql.addCustomParameter("infer","false")
     sparql.setQuery(querystring)
@@ -111,7 +114,6 @@ def getNodes(URI,URI2):
     for x in results["results"]["bindings"]:
         context.append([URI,x["p"]["value"],x["s"]["value"]])
     querystring="SELECT DISTINCT ?o ?p WHERE { ?o ?p <" + str(URI) + "> . FILTER (isURI(?o )) }"
-    # print querystring
     sparql.setQuery(querystring)
     results = sparql.query().convert()
     for x in results["results"]["bindings"]:
