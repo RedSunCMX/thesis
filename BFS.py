@@ -1,5 +1,4 @@
 from SPARQLWrapper import SPARQLWrapper,JSON
-from pprint import pprint
 
 context = []
 queue = []
@@ -65,18 +64,6 @@ def BFS(URI1,URI2,q):
                 getNodes(node,URI2)
                 q.enqueue(context)
 
-def qPath(URI,URI2,hops):
-    sparql = SPARQLWrapper('http://dvdgrs-900:8080/openrdf-sesame/repositories/cyttron')
-    if hops == 3:
-        querystring="""
-            SELECT DISTINCT ?p ?s
-            WHERE {
-            <" + str(URI) + "> ?p ?s .
-            ?s ?p2 ?o .
-            ?o ?p3 ?o2 .
-            FILTER (isURI(?s )) }"""
-    # print querystring    
-
 def showPath(list,start,target):
     newList=[]
     for x in range(len(list),0,-1):
@@ -110,7 +97,6 @@ def showPath(list,start,target):
                     print hop[i]
                     newList.append(hop[i])
                     return newList
-            
 
 def getNodes(URI,URI2):
     global context
@@ -131,15 +117,3 @@ def getNodes(URI,URI2):
     for x in results["results"]["bindings"]:
         context.append([x["o"]["value"],x["p"]["value"],URI])
     return context
-'''
-    print len(context),"neighbouring nodes"
-    print context
-    
-    for i in range(len(context)):
-        node1 = context[i][0]
-        node2 = context[i][1]
-        if node1 == URI:
-            print node2
-        else:
-            print node1
-'''
