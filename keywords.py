@@ -1,5 +1,5 @@
 import nltk
-from nltk import FreqDist, word_tokenize
+from nltk import FreqDist, word_tokenize, WordPunctTokenizer
 from nltk.corpus import stopwords
 from nltk.collocations import BigramCollocationFinder,TrigramCollocationFinder
 from nltk.metrics import BigramAssocMeasures,TrigramAssocMeasures
@@ -45,7 +45,7 @@ def freqWords(string,int):
     global pub
     wordList=[]
     stopset = set(stopwords.words('english'))
-    words = nltk.word_tokenize(string)
+    words = WordPunctTokenizer().tokenize(string)
     wordsCleaned = [word.lower() for word in words if word.lower() not in stopset and len(word) > 2]
     fdist = FreqDist(wordsCleaned).keys()
     if len(wordsCleaned) < int:
@@ -65,7 +65,7 @@ def freqWords(string,int):
 def wordCollo(string):
     biList=[]
     triList=[]
-    words = nltk.word_tokenize(string)
+    words = WordPunctTokenizer().tokenize(string)
     stopset = set(stopwords.words('english'))
     words = [word.lower() for word in words if word.lower() not in stopset and len(word) > 2]
     filter = lambda words: len(words) < 2 or words.isdigit()
