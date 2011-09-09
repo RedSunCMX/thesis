@@ -3,6 +3,10 @@ from SPARQLWrapper import SPARQLWrapper,JSON
 context = []
 queue = []
 visited = []
+path = []
+iup = 0
+endpoint = 'http://dvdgrs-900:8080/openrdf-sesame/repositories/cyttron'
+done = False
 
 class MyQUEUE:	
     def __init__(self):
@@ -27,7 +31,8 @@ class MyQUEUE:
         return result
 
 def BFS(URI1,URI2,q):
-    global queue,visited
+    global queue,visited,done
+    done = False
     queue=[]
     visited=[]
     
@@ -41,11 +46,18 @@ def BFS(URI1,URI2,q):
                 node1 = curr_path[i][0]
                 node2 = curr_path[i][2]
                 if node1 == URI2:
-                    print "\nFound a link!"
+                    done = True
                     showPath(queue,URI1,URI2)
+                    if done == True:
+                        string = "Found a link! Length:",len(path),"| Visited:",len(visited),"nodes."
+                        return string
                 if node2 == URI2:
                     print "\nFound a link!"
+                    done = True
                     showPath(queue,URI1,URI2)
+                    if done == True:
+                        string = "Found a link! Length:",len(path),"| Visited:",len(visited),"nodes."
+                        return string
                 if node1 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node1:
                     node = node1
                     visited.append(node)
@@ -68,7 +80,8 @@ def BFS(URI1,URI2,q):
                 q.enqueue(context)
 
 def showPath(list,start,target):
-    newList=[]
+    global path
+    path = []
     for x in range(len(list),0,-1):
         if x-1 > 1:
             hop = list[x-1]
@@ -76,34 +89,29 @@ def showPath(list,start,target):
                 leftNode = hop[i][0]
                 rightNode = hop[i][2]
                 if leftNode == target:
-                    print hop[i]
-                    newList.append(hop[i])
+                    path.append(hop[i])
                     target = rightNode
                     break
                 if rightNode == target:
-                    print hop[i]
-                    newList.append(hop[i])
+                    path.append(hop[i])
                     target = leftNode
                     break
         if x-1 == 1:
             hop = list[x-1]
-            print x-1,
             for i in range(len(hop)):
                 leftNode = hop[i][0]
                 rightNode = hop[i][2]
                 if leftNode == start and rightNode == target:
-                    print hop[i]
-                    newList.append(hop[i])
-                    print newList                    
+                    path.append(hop[i])
+                    return path                    
                 if rightNode == start and leftNode == target:
-                    print hop[i]
-                    newList.append(hop[i])
-                    print newList
+                    path.append(hop[i])
+                    return path
 
 def getNodes(URI,URI2):
     global context
     context=[]
-    sparql = SPARQLWrapper('http://dvdgrs-900:8080/openrdf-sesame/repositories/cyttron')
+    sparql = SPARQLWrapper(endpoint)
     querystring="SELECT DISTINCT ?p ?s WHERE { <" + str(URI) + "> ?p ?s . FILTER (isURI(?s ))  }"
     print URI
     sparql.setReturnFormat(JSON)
@@ -118,6 +126,28 @@ def getNodes(URI,URI2):
     for x in results["results"]["bindings"]:
         context.append([x["o"]["value"],x["p"]["value"],URI])
     return context
+
+#======================================================#
+# Find labels of a URI-pathList                        #
+#======================================================#
+def findLabels(pathList):
+    global endpoint
+    list_out=[]
+    newList=[]
+    for i in range(len(pathList)):
+        list_out = []
+        for j in range(len(pathList[i])):
+            sparql = SPARQLWrapper(endpoint)
+            sparql.addCustomParameter("infer","false")
+            querystring = 'PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> SELECT DISTINCT ?label WHERE { <' + str(pathList[i][j]) + '> rdfs:label ?label . }'
+            sparql.setReturnFormat(JSON)
+            sparql.setQuery(querystring)
+            results = sparql.query().convert()
+            for x in results["results"]["bindings"]:
+                list_out.append(x["label"]["value"])
+                print pathList[i][j],x["label"]["value"]
+        sentence = ' [is subClass of] '.join(list_out)
+        print sentence
 
 #======================================================#
 # 'shared parents' stuff                               #
@@ -152,6 +182,8 @@ def findParents(URI):
         exit
 
 def findCommonParents(URI1,URI2):
+    global done
+    done = False
     # Input URI strings, output common Parent
     print ""
     URI1 = [[URI1]]
@@ -178,11 +210,14 @@ def findCommonParents(URI1,URI2):
                 for j2 in range(len(result2[j])):
                     if set(result1[i][i2]) == set(result2[j][j2]):
                         print "[findCommonP]\t","CommonParent found!"
+                        done = True
                         print "[findCommonP]\t","Result1[" + str(i) + "][" + str(i2) +"]",
                         print "matches with result2[" +str(j) + "][" + str(j2) + "]"
                         print "[findCommonP]\t",result1[i][i2]
                         parent1 = result1
                         parent2 = result2
+                        if done == True:
+                            return parent1,parent2
     return parent1,parent2
 
 def findMultiParent(URIlist):

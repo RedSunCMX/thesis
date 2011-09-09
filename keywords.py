@@ -29,6 +29,17 @@ def descKeywords(list):
         freqWords(currentEntry,25)
         wordCollo(currentEntry)
         print " "
+    
+def freqNouns(string,int):
+    list=[]
+    words = nltk.word_tokenize(string)
+    pos = nltk.pos_tag(words)
+    for i in range(len(pos)):
+        if len(pos[i][0]) > 1:
+            if pos[i][1] == 'NN' or pos[i][1] == 'NNP':
+                list.append(pos[i][0])
+    newString = ' '.join(list)
+    freqWords(newString,int)
 
 def freqWords(string,int):
     global pub
@@ -50,11 +61,13 @@ def freqWords(string,int):
         csv.write('"' + ''.join(wordList) + '";')
     print wordList
     csv.close()
-    
+
 def wordCollo(string):
     biList=[]
     triList=[]
     words = nltk.word_tokenize(string)
+    stopset = set(stopwords.words('english'))
+    words = [word.lower() for word in words if word.lower() not in stopset and len(word) > 2]
     filter = lambda words: len(words) < 2 or words.isdigit()
     
     bcf = BigramCollocationFinder.from_words(words)

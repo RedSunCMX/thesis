@@ -236,28 +236,6 @@ def listWordNetDescMatch(list,int):
         print str(i+1),"of",str(len(list))
         descWordNetMatch(string,int)
         print ""
-    
-#======================================================#
-# Find labels of a URI-pathList                        #
-#======================================================#
-def findLabels(pathList):
-    global endpoint
-    list_out=[]
-    for i in range(len(pathList)):
-        for j in range(len(pathList[i])):
-            sparql = SPARQLWrapper(endpoint)
-            sparql.addCustomParameter("infer","false")
-            querystring = 'PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> SELECT DISTINCT ?label WHERE { <' + str(pathList[i][j]) + '> rdfs:label ?label . }'
-        sparql.setReturnFormat(JSON)
-        sparql.setQuery(querystring)
-        results = sparql.query().convert()
-        print str(pathList[i][j]),
-        for x in results["results"]["bindings"]:
-            list_out.append(x["label"]["value"])
-            print x["label"]["value"]
-    sentence = " is a superClass of ".join(list_out) + "."
-    print sentence
-    return list_out
 
 #======================================================#
 # Retrieve Wiki page raw text                          #
