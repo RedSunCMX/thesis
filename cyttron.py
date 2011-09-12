@@ -1,6 +1,6 @@
 import csv
 import nltk
-from nltk import word_tokenize, wordpunct_tokenize, pos_tag
+from nltk import word_tokenize, pos_tag, WordPunctTokenizer
 from nltk.collocations import BigramCollocationFinder
 from nltk.metrics import BigramAssocMeasures
 from nltk.corpus import stopwords, wordnet
@@ -10,6 +10,7 @@ from difflib import SequenceMatcher
 from pprint import pprint
 import urllib, urllib2
 from BeautifulSoup import BeautifulSoup
+from gensim import corpora, models, similarities
 
 # sparql-lists
 label = []
@@ -167,29 +168,51 @@ def wordNetWordMatch(string):
     wordMatch(newString)
 
 #======================================================#
-# Use Difflib to calculate similarity of strings       #
+# Use Gensim to calculate similarity                   #
 #======================================================#
 def descMatch(string,int):
     "Returns the x most similar descriptions"
     temp=[]
-    global foundDesc,fd
+    global foundDesc,fd,desc
     fd = open('log\descMatch.csv','a')
     fd.write('"' + string)
     foundDesc=[]
-    for i in range(len(desc)):
-        s = SequenceMatcher(None,desc[i][0],string)
-        temp.append([round(s.ratio(),3),desc[i][1]])
-    temp.sort(reverse=True)
-    foundDesc = temp[0:int]
-    print int,"most similar descriptions:"
-    for i in range(len(foundDesc)):
-        print foundDesc[i][0],foundDesc[i][1]
-        fd.write('";"' + str(foundDesc[i][0]) + '";"' + str(foundDesc[i][1]))
-    fd.write('"\n')
-    fd.close()
+    cleanDesc=[]
+    stopset = set(stopwords.words('english'))
 
+    ### Corpus stuff: create a TF-IDF metric using cleaned descriptions as training corpus
+    # 1. tokenize + clean each desc entry, store in new list
+    for i in range(len(desc)):
+        words = WordPunctTokenizer().tokenize(desc[i][0])
+        wordsCleaned = [word.lower() for word in words if word.lower() not in stopset and len(word) > 2]
+        cleanDesc.append(wordsCleaned)
+    # Create a dictionary (word:occurrence) out of the cleaned list
+    dictionary = corpora.Dictionary(cleanDesc)
+    # Create a bag-of-words model out of the entries in cleanDesc
+    vecDesc = [dictionary.doc2bow(x) for x in cleanDesc]
+    # Create a TF-IDF measure out of the BOW
+    tfidf = models.TfidfModel(vecDesc,id2word=dictionary)
+    corpus_tfidf = tfidf[vecDesc]
+
+    ### String stuff: tokenize, clean and convert to BOW format before comparing
+    tokenString = WordPunctTokenizer().tokenize(string)
+    cleanString = [token.lower() for token in tokenString if token.lower() not in stopset and len(token) > 2]
+    vecString = dictionary.doc2bow(cleanString)
+
+    ### Compare!
+    index = similarities.MatrixSimilarity(corpus_tfidf)
+    sims = index[vecString]
+    sims = sorted(enumerate(sims), key=lambda item: -item[1])
+    sims = sims[:int]
+    print len(sims)
+    for i in range(len(sims)):
+        ID = sims[i][0]
+        sim = sims[i][1]
+        descString = desc[ID]
+        foundDesc.append([descString,sim])
+    
 #======================================================#
-# Generate syns from string, difflib similarity        #
+# Generate syns from string, gensim similarity         #
 #======================================================#    
 def descWordNetMatch(string,int):
     newString = ""
@@ -202,7 +225,6 @@ def descWordNetMatch(string,int):
                 synonyms.append(str(lemma.name).replace('_',' ').lower())
         synonyms = set(synonyms)
         word = ', '.join(synonyms)
-        # print currentWord+str(":"),word
         newString += word
     descMatch(newString,int)
     
