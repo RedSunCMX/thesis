@@ -30,6 +30,10 @@ class MyQUEUE:
             result = True
         return result
 
+def SemSim(URI1,URI2):
+    q = MyQUEUE()
+    BFS(URI1,URI2,q)
+
 def BFS(URI1,URI2,q):
     global queue,visited,done
     done = False
@@ -50,14 +54,16 @@ def BFS(URI1,URI2,q):
                     showPath(queue,URI1,URI2)
                     if done == True:
                         string = "Found a link! Length:",len(path),"| Visited:",len(visited),"nodes."
-                        return string
+                        print string
+                        return len(path)
                 if node2 == URI2:
                     print "\nFound a link!"
                     done = True
                     showPath(queue,URI1,URI2)
                     if done == True:
                         string = "Found a link! Length:",len(path),"| Visited:",len(visited),"nodes."
-                        return string
+                        print string
+                        return len(path)
                 if node1 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node1:
                     node = node1
                     visited.append(node)

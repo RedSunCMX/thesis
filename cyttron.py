@@ -22,6 +22,8 @@ foundLabel= []
 foundDesc= []
 URI= []
 
+labelDict = {}
+
 iup = 0
 pathList = []
 
@@ -73,6 +75,31 @@ def getLabels():
         label.append([x["label"]["value"],x["URI"]["value"]])
 
     print "Filled list: label. With:",str(len(label)),"entries"
+
+def fillDict():
+    global labelDict,sparql,endpoint
+    print endpoint
+    sparql = SPARQLWrapper(endpoint)
+    sparql.addCustomParameter("infer","false")
+    sparql.setReturnFormat(JSON)
+    sparql.setQuery("""
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
+
+        SELECT ?URI ?label
+        WHERE {
+            ?URI rdfs:label ?label .
+            ?URI a owl:Class .
+        }
+    """)
+    
+    results = sparql.query().convert()
+    for x in results["results"]["bindings"]:
+        labelDict[x["URI"]["value"]] = x["label"]["value"]
+
+    print "Filled dict: labelDict. With:",str(len(labelDict)),"entries"
     
 #======================================================#
 # Fill a list of Desc:URI values (Cyttron_DB)          #
@@ -82,7 +109,6 @@ def getDescs():
     sparql = SPARQLWrapper(endpoint)
     sparql.addCustomParameter("infer","false")
     sparql.setReturnFormat(JSON)
-    # GO + DOID + MPATH
     sparql.setQuery("""
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
@@ -194,7 +220,7 @@ def descMatch(string,int):
     tfidf = models.TfidfModel(vecDesc,id2word=dictionary)
     corpus_tfidf = tfidf[vecDesc]
 
-    ### String stuff: tokenize, clean and convert to BOW format before comparing
+    ### String stuff: tokenize, clean and convert cleaned String to BOW format using the dictionary generated from the descriptions
     tokenString = WordPunctTokenizer().tokenize(string)
     cleanString = [token.lower() for token in tokenString if token.lower() not in stopset and len(token) > 2]
     vecString = dictionary.doc2bow(cleanString)
@@ -204,12 +230,25 @@ def descMatch(string,int):
     sims = index[vecString]
     sims = sorted(enumerate(sims), key=lambda item: -item[1])
     sims = sims[:int]
-    print len(sims)
     for i in range(len(sims)):
         ID = sims[i][0]
         sim = sims[i][1]
-        descString = desc[ID]
+        
+        descString = desc[ID][0]
+        URI = desc[ID][1]
+        label = labelDict[URI]
+        
+        print "Label:",label
+        print "Similarity:",sim
+        print "Description:",descString + "\n"
+        
         foundDesc.append([descString,sim])
+    for i in range(len(foundDesc)):
+        URI = foundDesc[i][0][1]
+        sem = foundDesc[i][1]
+        fd.write('";"' + str(sem) + '";"' + str(URI))
+    fd.write('"\n')
+    fd.close()
     
 #======================================================#
 # Generate syns from string, gensim similarity         #

@@ -12,7 +12,7 @@ keywordList = []
 bigramList = []
 trigramList = []
 
-#Extract wordFreq,bi/tri-grams. Store them in CSV
+# Extract wordFreq,bi/tri-grams. Store them in CSV
 def extractKeywords(list):
     csv = open('db\cyttron-keywords.csv','a')
     csv.write('"keywords";"bigrams";"trigrams"\n')
@@ -29,7 +29,8 @@ def descKeywords(list):
         freqWords(currentEntry,25)
         wordCollo(currentEntry)
         print " "
-    
+
+# String-functions
 def freqNouns(string,int):
     list=[]
     words = nltk.word_tokenize(string)
@@ -46,7 +47,7 @@ def freqWords(string,int):
     wordList=[]
     stopset = set(stopwords.words('english'))
     words = WordPunctTokenizer().tokenize(string)
-    wordsCleaned = [word.lower() for word in words if word.lower() not in stopset and len(word) > 2]
+    wordsCleaned = [word.lower() for word in words if word.lower() not in stopset and len(word) > 2 ]
     fdist = FreqDist(wordsCleaned).keys()
     if len(wordsCleaned) < int:
         int = len(wordsCleaned)-1
@@ -62,21 +63,25 @@ def freqWords(string,int):
     print wordList
     csv.close()
 
-def wordCollo(string):
+def wordCollo(string,int,clean=True):
     biList=[]
     triList=[]
+    print clean
     words = WordPunctTokenizer().tokenize(string)
     stopset = set(stopwords.words('english'))
-    words = [word.lower() for word in words if word.lower() not in stopset and len(word) > 2]
+    if clean == True:
+        words = [word.lower() for word in words if word.lower() not in stopset]
+    if clean == False:
+        words = [word.lower() for word in words]
     filter = lambda words: len(words) < 2 or words.isdigit()
     
     bcf = BigramCollocationFinder.from_words(words)
     bcf.apply_word_filter(filter)
-    biResult = bcf.nbest(BigramAssocMeasures.likelihood_ratio, 10)
+    biResult = bcf.nbest(BigramAssocMeasures.likelihood_ratio, int)
 
     tcf = TrigramCollocationFinder.from_words(words)
     tcf.apply_word_filter(filter)
-    triResult = tcf.nbest(TrigramAssocMeasures.likelihood_ratio, 4)
+    triResult = tcf.nbest(TrigramAssocMeasures.likelihood_ratio, int)
 
     for i in range(len(biResult)):
         if len(biResult) > 0:
