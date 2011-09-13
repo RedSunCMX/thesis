@@ -39,9 +39,7 @@ def BFS(URI1,URI2,q):
     done = False
     queue=[]
     visited=[]
-    
     q.enqueue([URI1])
-    
     while q.IsEmpty() == False:
         curr_path = q.dequeue()
         queue.append(curr_path)
@@ -53,7 +51,7 @@ def BFS(URI1,URI2,q):
                     done = True
                     showPath(queue,URI1,URI2)
                     if done == True:
-                        string = "Found a link! Length:",len(path),"| Visited:",len(visited),"nodes."
+                        string = "Found a link! Stored in path. Length:",len(path),"| Visited:",len(visited),"nodes."
                         print string
                         return len(path)
                 if node2 == URI2:
@@ -61,7 +59,7 @@ def BFS(URI1,URI2,q):
                     done = True
                     showPath(queue,URI1,URI2)
                     if done == True:
-                        string = "Found a link! Length:",len(path),"| Visited:",len(visited),"nodes."
+                        string = "Found a link! Stored in path. Length:",len(path),"| Visited:",len(visited),"nodes."
                         print string
                         return len(path)
                 if node1 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node1:
@@ -70,8 +68,6 @@ def BFS(URI1,URI2,q):
                     getNodes(node,URI2)
                     q.enqueue(context)
                 else:
-                    # node1 has been visited or is owl:Class
-                    # print node1,"has been visited! Trying node2"
                     if 'http://www.w3.org/2002/07/owl#Class' not in node2 and node2 not in visited:
                         node = node2
                         visited.append(node)
@@ -151,9 +147,9 @@ def findLabels(pathList):
             results = sparql.query().convert()
             for x in results["results"]["bindings"]:
                 list_out.append(x["label"]["value"])
-                print pathList[i][j],x["label"]["value"]
+                # print pathList[i][j],x["label"]["value"]
         sentence = ' [is subClass of] '.join(list_out)
-        print sentence
+        print str(i) + str(":"),sentence
 
 #======================================================#
 # 'shared parents' stuff                               #

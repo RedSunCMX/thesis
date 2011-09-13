@@ -142,7 +142,7 @@ def wordMatch(string):
     f.close()
     for i in range(len(label)):
         currentLabel = str(label[i][0]).lower()
-        currentURI = str(label[i][1]).lower()
+        currentURI = str(label[i][1])
         string = string.lower()
         c = re.findall(r"\b"+re.escape(currentLabel)+r"\b",string)
         countLabel = len(c)
@@ -238,15 +238,10 @@ def descMatch(string,int):
         URI = desc[ID][1]
         label = labelDict[URI]
         
-        print "Label:",label
-        print "Similarity:",sim
-        print "Description:",descString + "\n"
-        
-        foundDesc.append([descString,sim])
-    for i in range(len(foundDesc)):
-        URI = foundDesc[i][0][1]
-        sem = foundDesc[i][1]
-        fd.write('";"' + str(sem) + '";"' + str(URI))
+        #print "Label:",label
+        #print "Similarity:",sim
+        #print "Description:",descString + "\n"        
+        fd.write('";"' + str(sim) + '";"' + str(label) + '";"' + str(descString))
     fd.write('"\n')
     fd.close()
     
@@ -314,6 +309,7 @@ def wikiGet(title):
     soup = BeautifulSoup(data)
     text = str(soup.findAll('p'))
     wikiTxt = nltk.clean_html(text)
+    wikiTxt = wikiTxt.replace(';','')
     print title,'in wikiTxt'
 
 #======================================================#
@@ -331,7 +327,13 @@ def switchEndpoint():
         endpoint="http://dvdgrs-900:8080/openrdf-sesame/repositories/" + repo
         print "Switched SPARQL endpoint to Cyttron DB:",endpoint
         exit
-		
+
+def cyttron(listname):
+    f = csv.reader(open('db\cyttron.csv', 'rb'), delimiter=';')
+    for line in f:
+        listname.append(str(line[0]))
+    print len(listname)
+
 def cleanCSV(csvread):
     global pub,group,priv
     for line in csvread:
@@ -352,7 +354,11 @@ def cleanCSV(csvread):
     print "Priv entries:",total3,"total",len(priv),"unique"
 
 def main():
-    cleanCSV(csvread)
+    cyttronlist = []
+    cyttron(cyttronlist)
+    getLabels()
+    getDescs()
+    fillDict()
 
 if __name__ == '__main__':
     main()

@@ -8,20 +8,21 @@ import csv
 from pprint import pprint
 
 csvwrite = file('db\cyttron-keywords.csv', 'wb')
-keywordList = []
 bigramList = []
 trigramList = []
+wordList = []
 
 # Extract wordFreq,bi/tri-grams. Store them in CSV
-def extractKeywords(list):
+def extractKeywords(list,nr):
     csv = open('db\cyttron-keywords.csv','a')
-    csv.write('"keywords";"bigrams";"trigrams"\n')
+    csv.write('"keywords";"keynouns";"bigrams";"trigrams"\n')
     csv.close()
     for i in range(len(list)):
         currentEntry = str(list[i])
-        freqWords(currentEntry,10,i)
-        wordCollo(list[i])
-
+        freqWords(currentEntry,nr)
+        freqNouns(currentEntry,nr)
+        wordCollo(currentEntry,nr,clean=True)
+        
 def descKeywords(list):
     for i in range(len(list)):
         currentEntry = str(list[i][0])
@@ -43,7 +44,7 @@ def freqNouns(string,int):
     freqWords(newString,int)
 
 def freqWords(string,int):
-    global pub
+    global pub,wordList
     wordList=[]
     stopset = set(stopwords.words('english'))
     words = WordPunctTokenizer().tokenize(string)
@@ -60,10 +61,11 @@ def freqWords(string,int):
         csv.write('"' + ', '.join(wordList[:-1]) + ', ' + wordList[-1] + '";')
     else:
         csv.write('"' + ''.join(wordList) + '";')
-    print wordList
+    return wordList
     csv.close()
 
 def wordCollo(string,int,clean=True):
+    global wordList
     biList=[]
     triList=[]
     print clean
@@ -95,7 +97,6 @@ def wordCollo(string,int,clean=True):
     else:
         csv.write('"' + ''.join(biList) + '";')
     csv.close()
-    print biList
     
     for i in range(len(triResult)):
         if len(triResult) > 0:
@@ -109,15 +110,3 @@ def wordCollo(string,int,clean=True):
     else:
         csv.write('"' + ''.join(triList) + '"\n')
     csv.close()
-    print triList
-
-def readResults():
-    global keywordList,bigramList,trigramList
-    results = csv.reader(open('db\cyttron-keywords.csv', 'rb'), delimiter=';')
-    for line in results:
-        if len(line[0])>0:
-            keywordList.append(line[0])
-        if len(line[1])>0:
-            bigramList.append(line[1])
-        if len(line[2])>0:
-            trigramList.append(line[2])
