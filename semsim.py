@@ -1,5 +1,12 @@
 from SPARQLWrapper import SPARQLWrapper,JSON
+import networkx as nx
+import matplotlib.pyplot as plt
+import cyttron
 
+cyttron.fillDict()
+dicto = cyttron.labelDict
+
+DG = nx.DiGraph()
 context = []
 queue = []
 visited = []
@@ -35,7 +42,7 @@ def SemSim(URI1,URI2):
     BFS(URI1,URI2,q)
 
 def BFS(URI1,URI2,q):
-    global queue,visited,done
+    global queue,visited,done,DG
     done = False
     queue=[]
     visited=[]
@@ -45,8 +52,17 @@ def BFS(URI1,URI2,q):
         queue.append(curr_path)
         for i in range(len(curr_path)):
             if len(curr_path) > 1:
+                
                 node1 = curr_path[i][0]
                 node2 = curr_path[i][2]
+                edgeLabel = curr_path[i][1]
+                if DG.has_node(node1) is False:
+                    DG.add_node(node1)
+                if DG.has_node(node2) is False:
+                    DG.add_node(node2)
+                DG.add_edge(node1,node2,label=edgeLabel)
+                print "Added:",node1,">",edgeLabel,">",node2
+
                 if node1 == URI2:
                     done = True
                     showPath(queue,URI1,URI2)
@@ -80,6 +96,43 @@ def BFS(URI1,URI2,q):
                 visited.append(node)
                 getNodes(node,URI2)
                 q.enqueue(context)
+
+def createGraph(URI1,URI2):
+    global path,DG,dicto,pathList
+    SemSim(URI1,URI2)
+    # plot BFS result
+    for i in range(len(path)):
+        nodeLeft = path[i][0]
+        edgeLabel = path[i][1]
+        nodeRight = path[i][2]
+        if DG.has_node(nodeLeft) is False:
+            DG.add_node(nodeLeft)
+        if DG.has_node(nodeRight) is False:
+            DG.add_node(nodeRight)
+        DG.add_edge(nodeLeft,nodeRight,label=edgeLabel)
+        print "Added:",nodeLeft,">",edgeLabel,">",nodeRight
+    # plot parent1
+    findParents([[URI1]])
+    DG.add_node(pathList[0][0])
+    for i in range(1,len(pathList)):
+        prevNode = pathList[i-1][0]
+        node = pathList[i][0]
+        DG.add_node(node)
+        DG.add_edge(prevNode,node)
+        print "Added:",prevNode,"> edge >",node           
+    findParents([[URI2]])
+    DG.add_node(pathList[0][0])
+    for i in range(1,len(pathList)):
+        prevNode = pathList[i-1][0]
+        node = pathList[i][0]
+        DG.add_node(node)
+        DG.add_edge(prevNode,node)
+        print "Added:",prevNode,"> edge >",node
+
+def relabel(graph):
+    global dicto
+    DG2 = nx.relabel_nodes(graph,dicto)
+    return DG2
 
 def showPath(list,start,target):
     global path
@@ -181,7 +234,7 @@ def findParents(URI):
             print "[findParents]\t",i,"  |",URI[i]
         iup=0
         pathList = URI
-        exit
+        return pathList
 
 def findCommonParents(URI1,URI2):
     global done

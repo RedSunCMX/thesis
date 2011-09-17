@@ -40,7 +40,8 @@ def freqNouns(string,int):
         if len(pos[i][0]) > 1:
             if pos[i][1] == 'NN' or pos[i][1] == 'NNP':
                 list.append(pos[i][0])
-    newString = ' '.join(list)
+    newString = ' '.join(list).lower()
+    print newString
     freqWords(newString,int)
 
 def freqWords(string,int):
@@ -55,7 +56,8 @@ def freqWords(string,int):
     if int > 0:
         for j in range(1,int):
             word = fdist[j-1:j]
-            wordList.append(str(word[0]))
+            if len(word) > 0:
+                wordList.append(str(word[0]))
     csv = open('db\cyttron-keywords.csv','a')
     if len(wordList) > 1:
         csv.write('"' + ', '.join(wordList[:-1]) + ', ' + wordList[-1] + '";')

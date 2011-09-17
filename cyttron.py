@@ -22,6 +22,9 @@ foundLabel= []
 foundDesc= []
 URI= []
 
+cyttronlist = []
+csvList = []
+
 labelDict = {}
 
 iup = 0
@@ -100,7 +103,32 @@ def fillDict():
         labelDict[x["URI"]["value"]] = x["label"]["value"]
 
     print "Filled dict: labelDict. With:",str(len(labelDict)),"entries"
+
+def fillRDict():
+    global labelDict,sparql,endpoint
+    print endpoint
+    sparql = SPARQLWrapper(endpoint)
+    sparql.addCustomParameter("infer","false")
+    sparql.setReturnFormat(JSON)
+    sparql.setQuery("""
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
+
+        SELECT ?URI ?label
+        WHERE {
+            ?URI rdfs:label ?label .
+            ?URI a owl:Class .
+        }
+    """)
     
+    results = sparql.query().convert()
+    for x in results["results"]["bindings"]:
+        labelDict[x["label"]["value"]] = x["URI"]["value"]
+
+    print "Filled dict: labelDict. With:",str(len(labelDict)),"entries"
+
 #======================================================#
 # Fill a list of Desc:URI values (Cyttron_DB)          #
 #======================================================#
@@ -334,6 +362,14 @@ def cyttron(listname):
         listname.append(str(line[0]))
     print len(listname)
 
+def csv2list(fileName,columnNr):
+    global csvList
+    csvList=[]
+    f = csv.reader(open(fileName,'rb'), delimiter=';')
+    for line in f:
+        csvList.append(str(line[columnNr]))
+    print csvList
+
 def cleanCSV(csvread):
     global pub,group,priv
     for line in csvread:
@@ -354,6 +390,7 @@ def cleanCSV(csvread):
     print "Priv entries:",total3,"total",len(priv),"unique"
 
 def main():
+    global cyttronlist
     cyttronlist = []
     cyttron(cyttronlist)
     getLabels()
