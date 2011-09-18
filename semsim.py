@@ -1,15 +1,11 @@
 from SPARQLWrapper import SPARQLWrapper,JSON
-import networkx as nx
-import matplotlib.pyplot as plt
 import cyttron
 from pygraph.classes.digraph import digraph
 from pygraph.readwrite.dot import write
-import pydot
 
 cyttron.fillDict()
 dicto = cyttron.labelDict
 
-DG = nx.DiGraph()
 GR = digraph()
 context = []
 queue = []
@@ -18,6 +14,9 @@ path = []
 iup = 0
 endpoint = 'http://dvdgrs-900:8080/openrdf-sesame/repositories/cyttron'
 done = False
+
+URI1 = 'http://purl.obolibrary.org/obo/MPATH_33'
+URI2 = 'http://purl.obolibrary.org/obo/MPATH_56'
 
 class MyQUEUE:	
     def __init__(self):
@@ -60,9 +59,9 @@ def BFS(URI1,URI2,q):
                 node1 = curr_path[i][0]
                 node2 = curr_path[i][2]
                 edgeLabel = curr_path[i][1]
-                if GR.has_node(node1) is False and 'http://www.w3.org/2002/07/owl#Class':
+                if GR.has_node(node1) is False:
                     GR.add_node(node1)
-                if GR.has_node(node2) is False and 'http://www.w3.org/2002/07/owl#Class':
+                if GR.has_node(node2) is False:
                     GR.add_node(node2)
                 if GR.has_edge((node1,node2)) is False:
                     GR.add_edge((node1,node2),label=str(edgeLabel))
