@@ -2,11 +2,15 @@ from SPARQLWrapper import SPARQLWrapper,JSON
 import networkx as nx
 import matplotlib.pyplot as plt
 import cyttron
+from pygraph.classes.digraph import digraph
+from pygraph.readwrite.dot import write
+import pydot
 
 cyttron.fillDict()
 dicto = cyttron.labelDict
 
 DG = nx.DiGraph()
+GR = digraph()
 context = []
 queue = []
 visited = []
@@ -56,11 +60,12 @@ def BFS(URI1,URI2,q):
                 node1 = curr_path[i][0]
                 node2 = curr_path[i][2]
                 edgeLabel = curr_path[i][1]
-                if DG.has_node(node1) is False:
-                    DG.add_node(node1)
-                if DG.has_node(node2) is False:
-                    DG.add_node(node2)
-                DG.add_edge(node1,node2,label=edgeLabel)
+                if GR.has_node(node1) is False and 'http://www.w3.org/2002/07/owl#Class':
+                    GR.add_node(node1)
+                if GR.has_node(node2) is False and 'http://www.w3.org/2002/07/owl#Class':
+                    GR.add_node(node2)
+                if GR.has_edge((node1,node2)) is False:
+                    GR.add_edge((node1,node2),label=str(edgeLabel))
                 print "Added:",node1,">",edgeLabel,">",node2
 
                 if node1 == URI2:
@@ -98,41 +103,53 @@ def BFS(URI1,URI2,q):
                 q.enqueue(context)
 
 def createGraph(URI1,URI2):
-    global path,DG,dicto,pathList
+    global path,DG,dicto,pathList,GR
     SemSim(URI1,URI2)
     # plot BFS result
     for i in range(len(path)):
         nodeLeft = path[i][0]
         edgeLabel = path[i][1]
         nodeRight = path[i][2]
-        if DG.has_node(nodeLeft) is False:
-            DG.add_node(nodeLeft)
-        if DG.has_node(nodeRight) is False:
-            DG.add_node(nodeRight)
-        DG.add_edge(nodeLeft,nodeRight,label=edgeLabel)
+        if GR.has_node(nodeLeft) is False:
+            GR.add_node(nodeLeft)
+        if GR.has_node(nodeRight) is False:
+            GR.add_node(nodeRight)
+        if GR.has_edge((nodeLeft,nodeRight)) is False:
+            GR.add_edge((nodeLeft,nodeRight),label=str(edgeLabel))
         print "Added:",nodeLeft,">",edgeLabel,">",nodeRight
     # plot parent1
     findParents([[URI1]])
-    DG.add_node(pathList[0][0])
+    if GR.has_node(pathList[0][0]) is False:
+        GR.add_node(pathList[0][0])
     for i in range(1,len(pathList)):
         prevNode = pathList[i-1][0]
         node = pathList[i][0]
-        DG.add_node(node)
-        DG.add_edge(prevNode,node)
+        if GR.has_node(node) is False:
+            GR.add_node(node)
+        if GR.has_edge((prevNode,node)) is False:
+            GR.add_edge((prevNode,node),label='rdfs:subClassOf')
         print "Added:",prevNode,"> edge >",node           
     findParents([[URI2]])
-    DG.add_node(pathList[0][0])
+    if GR.has_node(pathList[0][0]) is False:
+        GR.add_node(pathList[0][0])
     for i in range(1,len(pathList)):
         prevNode = pathList[i-1][0]
         node = pathList[i][0]
-        DG.add_node(node)
-        DG.add_edge(prevNode,node)
+        if GR.has_node(node) is False:
+            GR.add_node(node)
+        if GR.has_edge((prevNode,node)) is False:
+            GR.add_edge((prevNode,node),label='rdfs:subClassOf')
         print "Added:",prevNode,"> edge >",node
+    dot = write(GR)
+    dotLabel = relabel(dot)
+    f = open('graph.gv','w')
+    f.write(dotLabel)
 
-def relabel(graph):
+def relabel(text):
     global dicto
-    DG2 = nx.relabel_nodes(graph,dicto)
-    return DG2
+    for i, j in dicto.iteritems():
+        text = text.replace(i, j)
+    return text
 
 def showPath(list,start,target):
     global path
