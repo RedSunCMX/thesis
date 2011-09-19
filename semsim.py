@@ -102,8 +102,9 @@ def BFS(URI1,URI2,q):
                 q.enqueue(context)
 
 def createGraph(URI1,URI2):
-    global path,DG,dicto,pathList,GR
+    global path,dicto,pathList,GR
     SemSim(URI1,URI2)
+
     # plot BFS result
     for i in range(len(path)):
         nodeLeft = path[i][0]
@@ -115,7 +116,7 @@ def createGraph(URI1,URI2):
             GR.add_node(nodeRight)
         if GR.has_edge((nodeLeft,nodeRight)) is False:
             GR.add_edge((nodeLeft,nodeRight),label=str(edgeLabel))
-        print "Added:",nodeLeft,">",edgeLabel,">",nodeRight
+
     # plot parent1
     findParents([[URI1]])
     if GR.has_node(pathList[0][0]) is False:
@@ -127,7 +128,8 @@ def createGraph(URI1,URI2):
             GR.add_node(node)
         if GR.has_edge((prevNode,node)) is False:
             GR.add_edge((prevNode,node),label='rdfs:subClassOf')
-        print "Added:",prevNode,"> edge >",node           
+
+    # plot parent1
     findParents([[URI2]])
     if GR.has_node(pathList[0][0]) is False:
         GR.add_node(pathList[0][0])
@@ -138,13 +140,15 @@ def createGraph(URI1,URI2):
             GR.add_node(node)
         if GR.has_edge((prevNode,node)) is False:
             GR.add_edge((prevNode,node),label='rdfs:subClassOf')
-        print "Added:",prevNode,"> edge >",node
+
+    # write graph to DOT-file
     dot = write(GR)
     dotLabel = relabel(dot)
     f = open('graph.gv','w')
     f.write(dotLabel)
 
 def relabel(text):
+    # from URI to label
     global dicto
     for i, j in dicto.iteritems():
         text = text.replace(i, j)

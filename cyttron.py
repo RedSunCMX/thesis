@@ -240,22 +240,29 @@ def descMatch(string,int):
         words = WordPunctTokenizer().tokenize(desc[i][0])
         wordsCleaned = [word.lower() for word in words if word.lower() not in stopset and len(word) > 2]
         cleanDesc.append(wordsCleaned)
+
+    # 2. Convert text to vectors, using bag-of-words model
     # Create a dictionary (word:occurrence) out of the cleaned list
+    # Create a corpus by converting the clean descriptions to a stream of vectors [BOW]
     dictionary = corpora.Dictionary(cleanDesc)
-    # Create a bag-of-words model out of the entries in cleanDesc
-    vecDesc = [dictionary.doc2bow(x) for x in cleanDesc]
+    print dictionary
+    corpus = [dictionary.doc2bow(x) for x in cleanDesc]
+    corpora.MmCorpus.serialize('corpus\desc.mm', corpus)
+    corpus = corpora.MmCorpus('corpus\desc.mm')
+    print corpus
+
     # Create a TF-IDF measure out of the BOW
-    tfidf = models.TfidfModel(vecDesc,id2word=dictionary)
-    corpus_tfidf = tfidf[vecDesc]
+    tfidf = models.TfidfModel(corpus)
 
     ### String stuff: tokenize, clean and convert cleaned String to BOW format using the dictionary generated from the descriptions
     tokenString = WordPunctTokenizer().tokenize(string)
     cleanString = [token.lower() for token in tokenString if token.lower() not in stopset and len(token) > 2]
-    vecString = dictionary.doc2bow(cleanString)
+    bowString = dictionary.doc2bow(cleanString)
+    tfidfString = tfidf[bowString]
 
     ### Compare!
-    index = similarities.MatrixSimilarity(corpus_tfidf)
-    sims = index[vecString]
+    index = similarities.MatrixSimilarity(tfidf[corpus])
+    sims = index[tfidfString]
     sims = sorted(enumerate(sims), key=lambda item: -item[1])
     sims = sims[:int]
     for i in range(len(sims)):
@@ -266,9 +273,7 @@ def descMatch(string,int):
         URI = desc[ID][1]
         label = labelDict[URI]
         
-        #print "Label:",label
-        #print "Similarity:",sim
-        #print "Description:",descString + "\n"        
+        print "Label:",label,"\n","Similarity:",sim,"\n","Description:",descString + "\n"        
         fd.write('";"' + str(sim) + '";"' + str(label) + '";"' + str(descString))
     fd.write('"\n')
     fd.close()
