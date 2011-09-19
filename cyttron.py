@@ -104,31 +104,6 @@ def fillDict():
 
     print "Filled dict: labelDict. With:",str(len(labelDict)),"entries"
 
-def fillRDict():
-    global labelDict,sparql,endpoint
-    print endpoint
-    sparql = SPARQLWrapper(endpoint)
-    sparql.addCustomParameter("infer","false")
-    sparql.setReturnFormat(JSON)
-    sparql.setQuery("""
-        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-        PREFIX owl: <http://www.w3.org/2002/07/owl#>
-        PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
-
-        SELECT ?URI ?label
-        WHERE {
-            ?URI rdfs:label ?label .
-            ?URI a owl:Class .
-        }
-    """)
-    
-    results = sparql.query().convert()
-    for x in results["results"]["bindings"]:
-        labelDict[x["label"]["value"]] = x["URI"]["value"]
-
-    print "Filled dict: labelDict. With:",str(len(labelDict)),"entries"
-
 #======================================================#
 # Fill a list of Desc:URI values (Cyttron_DB)          #
 #======================================================#
@@ -180,7 +155,7 @@ def wordMatch(string):
             for i in range(countLabel):
                 foundTotal.append(currentLabel)
     foundLabel.sort(reverse=True)
-    print foundLabel
+
     f = open('log\wordMatch.csv','a')
     if len(foundTotal) > 0:
         if len(foundTotal) > 1:
@@ -197,11 +172,15 @@ def wordMatch(string):
     else:
         f.write('0";""' + "\n")
     f.close()
-    print foundUnique
-    print foundTotal
+
+    foundURI=[]
+    for i in range(len(foundLabel)):
+        print foundLabel[i][2],foundLabel[i][0]
+        foundURI.append(foundLabel[i][1])
     print "Found",len(foundUnique),"unique labels"
     print "and",len(foundTotal),"total labels"
-        
+    print foundURI
+    
 #======================================================#
 # Scan a string, generate syns for each word           #
 # wordMatch syn-string                                 #
@@ -277,6 +256,15 @@ def descMatch(string,int):
         fd.write('";"' + str(sim) + '";"' + str(label) + '";"' + str(descString))
     fd.write('"\n')
     fd.close()
+
+def stringMatch(string1,string2):
+    words1 = WordPunctTokenizer().tokenize(string1)
+    wordsCleaned1 = [word.lower() for word in words1 if word.lower() not in stopset and len(word) > 2]
+    cleanString1.append(wordsCleaned1)
+
+    words2 = WordPunctTokenizer().tokenize(string2)
+    wordsCleaned2 = [word.lower() for word in words2 if word.lower() not in stopset and len(word) > 2]
+    cleanString2.append(wordsCleaned2)
     
 #======================================================#
 # Generate syns from string, gensim similarity         #

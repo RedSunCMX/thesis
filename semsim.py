@@ -65,7 +65,7 @@ def BFS(URI1,URI2,q):
                     GR.add_node(node2)
                 if GR.has_edge((node1,node2)) is False:
                     GR.add_edge((node1,node2),label=str(edgeLabel))
-                print "Added:",node1,">",edgeLabel,">",node2
+                # print "Added:",node1,">",edgeLabel,">",node2
 
                 if node1 == URI2:
                     done = True
@@ -82,13 +82,13 @@ def BFS(URI1,URI2,q):
                         string = "Found a link! Stored in path. Length:",len(path),"| Visited:",len(visited),"nodes."
                         print string
                         return len(path)
-                if node1 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node1:
+                if node1 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node1 and 'http://www.geneontology.org/formats/oboInOwl#ObsoleteClass' not in node1:
                     node = node1
                     visited.append(node)
                     getNodes(node,URI2)
                     q.enqueue(context)
                 else:
-                    if 'http://www.w3.org/2002/07/owl#Class' not in node2 and node2 not in visited:
+                    if 'http://www.w3.org/2002/07/owl#Class' not in node2 and 'http://www.geneontology.org/formats/oboInOwl#ObsoleteClass' not in node2 and node2 not in visited:
                         node = node2
                         visited.append(node)
                         getNodes(node,URI2)
@@ -101,45 +101,49 @@ def BFS(URI1,URI2,q):
                 getNodes(node,URI2)
                 q.enqueue(context)
 
-def createGraph(URI1,URI2):
+def createGraph(list_of_nodes):
     global path,dicto,pathList,GR
-    SemSim(URI1,URI2)
+    for i in range(1,len(list_of_nodes)):
+        currentURI = list_of_nodes[i]
+        otherURI = list_of_nodes[i-1]
+        
+        SemSim(otherURI,currentURI)
 
-    # plot BFS result
-    for i in range(len(path)):
-        nodeLeft = path[i][0]
-        edgeLabel = path[i][1]
-        nodeRight = path[i][2]
-        if GR.has_node(nodeLeft) is False:
-            GR.add_node(nodeLeft)
-        if GR.has_node(nodeRight) is False:
-            GR.add_node(nodeRight)
-        if GR.has_edge((nodeLeft,nodeRight)) is False:
-            GR.add_edge((nodeLeft,nodeRight),label=str(edgeLabel))
+        # plot BFS result
+        for i in range(len(path)):
+            nodeLeft = path[i][0]
+            edgeLabel = path[i][1]
+            nodeRight = path[i][2]
+            if GR.has_node(nodeLeft) is False:
+                GR.add_node(nodeLeft)
+            if GR.has_node(nodeRight) is False:
+                GR.add_node(nodeRight)
+            if GR.has_edge((nodeLeft,nodeRight)) is False:
+                GR.add_edge((nodeLeft,nodeRight),label=str(edgeLabel))
 
-    # plot parent1
-    findParents([[URI1]])
-    if GR.has_node(pathList[0][0]) is False:
-        GR.add_node(pathList[0][0])
-    for i in range(1,len(pathList)):
-        prevNode = pathList[i-1][0]
-        node = pathList[i][0]
-        if GR.has_node(node) is False:
-            GR.add_node(node)
-        if GR.has_edge((prevNode,node)) is False:
-            GR.add_edge((prevNode,node),label='rdfs:subClassOf')
+        # plot parent1
+        findParents([[URI1]])
+        if GR.has_node(pathList[0][0]) is False:
+            GR.add_node(pathList[0][0])
+        for i in range(1,len(pathList)):
+            prevNode = pathList[i-1][0]
+            node = pathList[i][0]
+            if GR.has_node(node) is False:
+                GR.add_node(node)
+            if GR.has_edge((prevNode,node)) is False:
+                GR.add_edge((prevNode,node),label='rdfs:subClassOf')
 
-    # plot parent1
-    findParents([[URI2]])
-    if GR.has_node(pathList[0][0]) is False:
-        GR.add_node(pathList[0][0])
-    for i in range(1,len(pathList)):
-        prevNode = pathList[i-1][0]
-        node = pathList[i][0]
-        if GR.has_node(node) is False:
-            GR.add_node(node)
-        if GR.has_edge((prevNode,node)) is False:
-            GR.add_edge((prevNode,node),label='rdfs:subClassOf')
+        # plot parent1
+        findParents([[URI2]])
+        if GR.has_node(pathList[0][0]) is False:
+            GR.add_node(pathList[0][0])
+        for i in range(1,len(pathList)):
+            prevNode = pathList[i-1][0]
+            node = pathList[i][0]
+            if GR.has_node(node) is False:
+                GR.add_node(node)
+            if GR.has_edge((prevNode,node)) is False:
+                GR.add_edge((prevNode,node),label='rdfs:subClassOf')
 
     # write graph to DOT-file
     dot = write(GR)
