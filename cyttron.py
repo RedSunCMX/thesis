@@ -16,8 +16,6 @@ from gensim import corpora, models, similarities
 label = []
 desc = []
 bigList= []
-contextIn= []
-contextOut= []
 foundLabel= []
 foundDesc= []
 URI= []

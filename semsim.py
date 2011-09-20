@@ -65,6 +65,7 @@ def BFS(URI1,URI2,q):
                     GR.add_node(node2)
                 if GR.has_edge((node1,node2)) is False:
                     GR.add_edge((node1,node2),label=str(edgeLabel))
+                # Store node1 + node2 pathlength:0 in CSV
                 # print "Added:",node1,">",edgeLabel,">",node2
 
                 if node1 == URI2:
@@ -72,6 +73,7 @@ def BFS(URI1,URI2,q):
                     showPath(queue,URI1,URI2)
                     if done == True:
                         string = "Found a link! Stored in path. Length:",len(path),"| Visited:",len(visited),"nodes."
+                        # Store node1 + node2 + pathlength in CSV
                         print string
                         return len(path)
                 if node2 == URI2:
@@ -207,28 +209,6 @@ def getNodes(URI,URI2):
     return context
 
 #======================================================#
-# Find labels of a URI-pathList                        #
-#======================================================#
-def findLabels(pathList):
-    global endpoint
-    list_out=[]
-    newList=[]
-    for i in range(len(pathList)):
-        list_out = []
-        for j in range(len(pathList[i])):
-            sparql = SPARQLWrapper(endpoint)
-            sparql.addCustomParameter("infer","false")
-            querystring = 'PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> SELECT DISTINCT ?label WHERE { <' + str(pathList[i][j]) + '> rdfs:label ?label . }'
-            sparql.setReturnFormat(JSON)
-            sparql.setQuery(querystring)
-            results = sparql.query().convert()
-            for x in results["results"]["bindings"]:
-                list_out.append(x["label"]["value"])
-                # print pathList[i][j],x["label"]["value"]
-        sentence = ' [is subClass of] '.join(list_out)
-        print str(i) + str(":"),sentence
-
-#======================================================#
 # 'shared parents' stuff                               #
 #======================================================#
 def findParents(URI):
@@ -307,3 +287,119 @@ def findMultiParent(URIlist):
             print str(URIlist[i]),"-",str(URIlist[j])
             findCommonParents(URIlist[i],URIlist[j])
             bigList.append([parent1,parent2])
+
+
+#======================================================#
+# Textual comparison                                   #
+#======================================================#
+def getContext(node1):
+                
+    context1=[]
+    neighboursOut=[]
+    neighboursIn=[]
+    sparql = SPARQLWrapper(endpoint)
+
+    # Get own out literals
+    querystring="SELECT DISTINCT ?s WHERE { <" + str(node1) + "> ?p ?s . FILTER (isLiteral(?s ))  }"
+    sparql.setReturnFormat(JSON)
+    sparql.addCustomParameter("infer","false")
+    sparql.setQuery(querystring)
+    results = sparql.query().convert()
+    for x in results["results"]["bindings"]:
+        if 'http://www.w3.org/2002/07/owl#Class' not in x["s"]["value"]:
+            context1.append(x["s"]["value"])
+            print "Own OUT literals:",x["s"]["value"]
+
+    # Get own out bnode-literals
+    querystring="PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> SELECT DISTINCT ?desc WHERE { <" + str(node1) + "> ?p ?s . ?s ?x ?desc . FILTER (isBlank(?s )) . FILTER (isLiteral(?desc)) }"
+    sparql.setReturnFormat(JSON)
+    sparql.addCustomParameter("infer","false")
+    sparql.setQuery(querystring)
+    results = sparql.query().convert()
+    for x in results["results"]["bindings"]:
+        if 'http://www.w3.org/2002/07/owl#Class' not in x["s"]["value"]:
+            context1.append(x["s"]["value"])
+            print "Own OUT bnode-literals:",x["s"]["value"]
+
+    # Get own in literals
+    querystring="SELECT DISTINCT ?o WHERE { ?o ?p <" + str(node1) + "> . FILTER (isLiteral(?o )) }"
+    sparql.setReturnFormat(JSON)
+    sparql.addCustomParameter("infer","false")
+    sparql.setQuery(querystring)
+    results = sparql.query().convert()
+    for x in results["results"]["bindings"]:
+        context1.append(x["o"]["value"])
+        print "Own IN literals",x["o"]["value"]
+
+    # Get own in bnode-literals
+    querystring="PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> SELECT DISTINCT ?desc WHERE { ?o ?p <" + str(node1) + "> . ?o ?x ?desc . FILTER (isBlank(?o )) . FILTER (isLiteral(?desc)) }"
+    sparql.setReturnFormat(JSON)
+    sparql.addCustomParameter("infer","false")
+    sparql.setQuery(querystring)
+    results = sparql.query().convert()
+    for x in results["results"]["bindings"]:
+        context1.append(x["desc"]["value"])
+        print "Own IN literals:",x["desc"]["value"]
+
+    print "Final direct:",context1
+
+    # Get all out neighbour URI's
+    querystring="SELECT DISTINCT ?s WHERE { <" + str(node1) + "> ?p ?s . FILTER (isURI(?s ))  }"
+    sparql.setReturnFormat(JSON)
+    sparql.addCustomParameter("infer","false")
+    sparql.setQuery(querystring)
+    results = sparql.query().convert()
+    for x in results["results"]["bindings"]:
+        if 'http://www.w3.org/2002/07/owl#Class' not in x["s"]["value"]:
+            neighboursOut.append(x["s"]["value"])
+    print "Neighbour OUT nodes:",neighboursOut
+
+    # Get all in neighbour URI's
+    querystring="SELECT DISTINCT ?o WHERE { ?o ?p <" + str(node1) + "> . FILTER (isURI(?o )) }"
+    sparql.setReturnFormat(JSON)
+    sparql.addCustomParameter("infer","false")
+    sparql.setQuery(querystring)
+    results = sparql.query().convert()
+    for x in results["results"]["bindings"]:
+        if 'http://www.w3.org/2002/07/owl#Class' not in x["o"]["value"]:
+            neighboursIn.append(x["o"]["value"])
+    print "Neighbours IN:",neighboursIn
+
+    # Get literal + bnode-literals for OUT neighbours
+    for i in range(len(neighboursOut)):
+        # Get all neighbour literals
+        querystring="SELECT DISTINCT ?s WHERE { <" + str(neighboursOut[i]) + "> ?p ?s . FILTER (isLiteral(?s ))  }"
+        sparql.setReturnFormat(JSON)
+        sparql.addCustomParameter("infer","false")
+        sparql.setQuery(querystring)
+        results = sparql.query().convert()
+        for x in results["results"]["bindings"]:
+            context1.append(x["s"]["value"])
+
+        # Get all neighbour bnode-literals
+        querystring="PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> SELECT DISTINCT ?desc WHERE { <" + str(neighboursOut[i]) + "> ?p ?s . ?s ?x ?desc . FILTER (isBlank(?s )) . FILTER (isLiteral(?desc)) }"
+        sparql.setReturnFormat(JSON)
+        sparql.addCustomParameter("infer","false")
+        sparql.setQuery(querystring)
+        results = sparql.query().convert()
+        for x in results["results"]["bindings"]:
+            context1.append(x["desc"]["value"])
+
+    # Get literal + bnode-literals for IN neighbours
+    for i in range(len(neighboursIn)):
+        querystring="SELECT DISTINCT ?o WHERE { ?o ?p <" + str(neighboursIn[i]) + "> . FILTER (isLiteral(?o )) }"
+        sparql.setReturnFormat(JSON)
+        sparql.addCustomParameter("infer","false")
+        sparql.setQuery(querystring)
+        results = sparql.query().convert()
+        for x in results["results"]["bindings"]:
+            context1.append(x["o"]["value"])
+
+        querystring="PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> SELECT DISTINCT ?desc WHERE { ?o ?p <" + str(neighboursIn[i]) + "> . ?o ?x ?desc . FILTER (isBlank(?o )) . FILTER (isLiteral(?desc)) }"
+        sparql.setReturnFormat(JSON)
+        sparql.addCustomParameter("infer","false")
+        sparql.setQuery(querystring)
+        results = sparql.query().convert()
+        for x in results["results"]["bindings"]:
+            context1.append(x["desc"]["value"])
+    print "Final:",context1
