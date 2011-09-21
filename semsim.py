@@ -2,7 +2,9 @@ from SPARQLWrapper import SPARQLWrapper,JSON
 import cyttron
 from pygraph.classes.digraph import digraph
 from pygraph.readwrite.dot import write
+import sqlite3
 
+conn = sqlite3.connect('db/paths.db')
 cyttron.fillDict()
 dicto = cyttron.labelDict
 
@@ -46,62 +48,112 @@ def SemSim(URI1,URI2):
 
 def BFS(URI1,URI2,q):
     global queue,visited,done,DG
-    done = False
-    queue=[]
-    visited=[]
-    q.enqueue([URI1])
-    while q.IsEmpty() == False:
-        curr_path = q.dequeue()
-        queue.append(curr_path)
-        for i in range(len(curr_path)):
-            if len(curr_path) > 1:
-                
-                node1 = curr_path[i][0]
-                node2 = curr_path[i][2]
-                edgeLabel = curr_path[i][1]
-                if GR.has_node(node1) is False:
-                    GR.add_node(node1)
-                if GR.has_node(node2) is False:
-                    GR.add_node(node2)
-                if GR.has_edge((node1,node2)) is False:
-                    GR.add_edge((node1,node2),label=str(edgeLabel))
-                # Store node1 + node2 pathlength:0 in CSV
-                # print "Added:",node1,">",edgeLabel,">",node2
+    # Sort list so node1-node2 == node2-node1
+    lijstje=[URI1,URI2]
+    URI1 = sorted(lijstje)[0]
+    URI2 = sorted(lijstje)[1]
 
-                if node1 == URI2:
-                    done = True
-                    showPath(queue,URI1,URI2)
-                    if done == True:
-                        string = "Found a link! Stored in path. Length:",len(path),"| Visited:",len(visited),"nodes."
-                        # Store node1 + node2 + pathlength in CSV
-                        print string
-                        return len(path)
-                if node2 == URI2:
-                    print "\nFound a link!"
-                    done = True
-                    showPath(queue,URI1,URI2)
-                    if done == True:
-                        string = "Found a link! Stored in path. Length:",len(path),"| Visited:",len(visited),"nodes."
-                        print string
-                        return len(path)
-                if node1 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node1 and 'http://www.geneontology.org/formats/oboInOwl#ObsoleteClass' not in node1:
-                    node = node1
-                    visited.append(node)
-                    getNodes(node,URI2)
-                    q.enqueue(context)
-                else:
-                    if 'http://www.w3.org/2002/07/owl#Class' not in node2 and 'http://www.geneontology.org/formats/oboInOwl#ObsoleteClass' not in node2 and node2 not in visited:
-                        node = node2
+    # Check if initial URI-path is already in db
+    c = conn.cursor()
+    c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(URI1,URI2))
+    if len(c.fetchall()) > 0:
+        print "Initial URI Path already exists!"
+        c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(URI1,URI2))
+        print c.fetchall()
+        c.close()
+        done = True
+        return 'finished'
+    else:
+        print "Initial URI Path is unknown to me..."
+        done = False
+        queue=[]
+        visited=[]
+        q.enqueue([URI1])
+        while q.IsEmpty() == False:
+            curr_path = q.dequeue()
+            queue.append(curr_path)
+            for i in range(len(curr_path)):
+                if len(curr_path) > 1:
+                    
+                    node1 = curr_path[i][0]
+                    node2 = curr_path[i][2]
+                    edgeLabel = curr_path[i][1]
+                    if GR.has_node(node1) is False:
+                        GR.add_node(node1)
+                    if GR.has_node(node2) is False:
+                        GR.add_node(node2)
+                    if GR.has_edge((node1,node2)) is False:
+                        GR.add_edge((node1,node2),label=str(edgeLabel))
+
+                    # Check if path/edge exists in SQLite DB:
+                    c = conn.cursor()
+                    c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(node1,node2))
+                    if len(c.fetchall()) > 0:
+                        print "Path already exists!"
+                    else:
+                        print "Inserting path!"
+                        c.execute('insert into thesis values (?,?,1)',(node1,node2))
+                        conn.commit()
+                    c.close()
+
+                    # print "Added:",node1,">",edgeLabel,">",node2
+
+                    if node1 == URI2:
+                        done = True
+                        showPath(queue,URI1,URI2)
+                        if done == True:
+                            string = "Found a link! Stored in path. Length:",len(path),"| Visited:",len(visited),"nodes."
+                            print string
+
+                            c = conn.cursor()
+                            c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(URI1,URI2))
+                            if len(c.fetchall()) > 0:
+                                print "BEST VER Path already exists!"
+                            else:
+                                print "BEST VER Inserting path!"
+                                c.execute('insert into thesis values (?,?,?)',(URI1,URI2,len(path)))
+                                conn.commit()
+                            c.close()
+                            
+                            return len(path)
+                    if node2 == URI2:
+                        print "\nFound a link!"
+                        done = True
+                        showPath(queue,URI1,URI2)
+                        if done == True:
+                            string = "Found a link! Stored in path. Length:",len(path),"| Visited:",len(visited),"nodes."
+                            print string
+
+                            c = conn.cursor()
+                            c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(URI1,URI2))
+                            if len(c.fetchall()) > 0:
+                                print "BEST VER Path already exists!"
+                            else:
+                                print "BEST VER Inserting path!"
+                                c.execute('insert into thesis values (?,?,?)',(URI1,URI2,len(path)))
+                                conn.commit()
+                            c.close()
+                    
+                            return len(path)
+                        
+                    if node1 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node1 and 'http://www.geneontology.org/formats/oboInOwl#ObsoleteClass' not in node1:
+                        node = node1
                         visited.append(node)
                         getNodes(node,URI2)
                         q.enqueue(context)
                     else:
-                        i+=1
-            else:
-                node = curr_path[0]
-                visited.append(node)
-                getNodes(node,URI2)
-                q.enqueue(context)
+                        if 'http://www.w3.org/2002/07/owl#Class' not in node2 and 'http://www.geneontology.org/formats/oboInOwl#ObsoleteClass' not in node2 and node2 not in visited:
+                            node = node2
+                            visited.append(node)
+                            getNodes(node,URI2)
+                            q.enqueue(context)
+                        else:
+                            i+=1
+                else:
+                    node = curr_path[0]
+                    visited.append(node)
+                    getNodes(node,URI2)
+                    q.enqueue(context)
 
 def createGraph(list_of_nodes):
     global path,dicto,pathList,GR
