@@ -22,6 +22,7 @@ def extractKeywords(list,nr):
         freqWords(currentEntry,nr)
         freqNouns(currentEntry,nr)
         wordCollo(currentEntry,nr,clean=True)
+    csv.close()
         
 def descKeywords(list):
     for i in range(len(list)):
@@ -63,8 +64,9 @@ def freqWords(string,int):
         csv.write('"' + ', '.join(wordList[:-1]) + ', ' + wordList[-1] + '";')
     else:
         csv.write('"' + ''.join(wordList) + '";')
-    return wordList
     csv.close()
+    return wordList
+
 
 def wordCollo(string,int,clean=True):
     global wordList
