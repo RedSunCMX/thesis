@@ -24,6 +24,7 @@ cyttronlist = []
 csvList = []
 
 labelDict = {}
+wikilist=[]
 
 iup = 0
 pathList = []
@@ -76,6 +77,22 @@ def getLabels():
         label.append([x["label"]["value"],x["URI"]["value"]])
 
     print "Filled list: label. With:",str(len(label)),"entries"
+
+def wikiLabels():
+    global label
+    label = []
+    endpoint = "http://dvdgrs-900:8080/openrdf-sesame/repositories/dbp"
+    print endpoint
+    sparql = SPARQLWrapper(endpoint)
+    sparql.addCustomParameter("infer","false")
+    sparql.setReturnFormat(JSON)
+    querystring = 'PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#> select distinct ?label where {?o rdfs:label ?label . filter( langMatches( lang(?label), "en")||(!langMatches(lang(?label),"*")) )}'
+    print querystring
+    sparql.setQuery(querystring)
+
+    results = sparql.query().convert()
+    for x in results["results"]["bindings"]:
+        label.append([x["label"]["value"],x["URI"]["value"]])   
 
 def fillDict():
     global labelDict,sparql,endpoint
@@ -214,19 +231,14 @@ def descMatch(string,int):
     ### Corpus stuff: create a TF-IDF metric using cleaned descriptions as training corpus
     # 1. tokenize + clean each desc entry, store in new list
     for i in range(len(desc)):
-        words = WordPunctTokenizer().tokenize(desc[i][0])
-        wordsCleaned = [word.lower() for word in words if word.lower() not in stopset and len(word) > 2]
-        cleanDesc.append(wordsCleaned)
+        cleanDesc.append(desc[i][0])
+    texts = [[word for word in x.lower().split() if word not in stopset and len(word) > 2] for x in cleanDesc]
 
     # 2. Convert text to vectors, using bag-of-words model
     # Create a dictionary (word:occurrence) out of the cleaned list
     # Create a corpus by converting the clean descriptions to a stream of vectors [BOW]
-    dictionary = corpora.Dictionary(cleanDesc)
-    print dictionary
-    corpus = [dictionary.doc2bow(x) for x in cleanDesc]
-    corpora.MmCorpus.serialize('corpus\desc.mm', corpus)
-    corpus = corpora.MmCorpus('corpus\desc.mm')
-    print corpus
+    dictionary = corpora.Dictionary(texts)
+    corpus = [dictionary.doc2bow(x) for x in texts]
 
     # Create a TF-IDF measure out of the BOW
     tfidf = models.TfidfModel(corpus)
@@ -255,15 +267,6 @@ def descMatch(string,int):
     fd.write('"\n')
     fd.close()
 
-def stringMatch(string1,string2):
-    words1 = WordPunctTokenizer().tokenize(string1)
-    wordsCleaned1 = [word.lower() for word in words1 if word.lower() not in stopset and len(word) > 2]
-    cleanString1.append(wordsCleaned1)
-
-    words2 = WordPunctTokenizer().tokenize(string2)
-    wordsCleaned2 = [word.lower() for word in words2 if word.lower() not in stopset and len(word) > 2]
-    cleanString2.append(wordsCleaned2)
-    
 #======================================================#
 # Generate syns from string, gensim similarity         #
 #======================================================#    
@@ -298,10 +301,10 @@ def listWordNetMatch(list):
         wordNetWordMatch(string)
         print ""
 
-def listDescMatch(list,int):
-    for i in range(len(list)):
-        string = list[i]
-        print str(i+1),"of",str(len(list))
+def listDescMatch(lijst,int):
+    for i in range(len(lijst)):
+        string = lijst[i]
+        print str(i+1),"of",str(len(lijst))
         descMatch(string,int)
         print ""
 
@@ -381,12 +384,21 @@ def cleanCSV(csvread):
     print "Priv entries:",total3,"total",len(priv),"unique"
 
 def main():
-    global cyttronlist
+    global cyttronlist,wikilist
     cyttronlist = []
     cyttron(cyttronlist)
     getLabels()
     getDescs()
     fillDict()
+    wikiGet('Alzheimer')
+    wikilist.append(wikiTxt)
+    wikiGet('Apoptosis')
+    wikilist.append(wikiTxt)
+    wikiGet('Tau protein')
+    wikilist.append(wikiTxt)
+    wikiGet('Zebrafish')
+    wikilist.append(wikiTxt) 
+    print len(wikilist)
 
 if __name__ == '__main__':
     main()
