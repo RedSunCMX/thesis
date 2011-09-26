@@ -26,6 +26,8 @@ URI2 = 'http://purl.org/obo/owl/MPATH#MPATH_154'
 s2 = "[u'developmental and adult structural  defect', u'Structural, physical or other general defect of prenatal development of the embryo, the placenta or the adult.', u'MPATH:56', u'Pathbase: Pathology Committee', u'Structural, physical or other general defect of prenatal development of the embryo, the placenta or the adult.', u'developmental and structural abnormality', u'Developmental and structural abnormalities occurring during embryonic development or during adult life.', u'MPATH:55', u'ISBN:0781727286', u'A focal malformation resembling a neoplasm which results from faulty development of an organ; composed of an abnormal mixture of tissue elements, or an abnormal proportion of a single element. Growth and location are usually normal for that tissue cf. Heterotopia/Choristoma MPATH:76/MPATH:477.', u'Pathbase: Curation', u'Any aberration of the normal symmetrical organisation of the body pattern.', u'Pathbase: Pathology Committee', u'Increase in the diameter of an orifice or tubular structure beyond its normal dimensions.', u'ISBN:0781727286', u'Similar to hamartoma, including the mass lesion requirement, but unlike hamartoma, includes heterotopic tissue of an adult or embryonic nature ( topographical and developmental anomaly).', u'Pathbase: Curation', u'Choristoblastoma', u'Pathbase: Pathology Committee', u'The twisting of a bodily organ or part on its own axis.', u'Pathbase: Curation', u'Failure of two cavities, voids or lumens to connect.', u'Pathbase: Curation', u'Aberrant branch or branching pattern of a branched structure such as the bronchus.', u'Pathbase: Curation', u'Inappropriate curvature of a structure.', u'Pathbase: Pathology Committee', u'Formation of an epithelium bounded cavity not associated with neoplasia.', u'Millodot; Michel and Daniel Laby. Dictionary of Ophthalmology. London: Butterworth Heinemann; 2002', u'An adhesion, usually between the iris and the cornea or the lens capsule.', u'ISBN:0781727286', u'Turning in of the edges of a structure.', u'ISBN:0781727286', u'Tearing away or separation of two structures or parts.', u'ISBN:0781727286', u'To sink down, said of an organ or other part. A sinking of an organ or other part, especially its appearance at a natural or artificial orifice.', u'Pathbase: Curation', u'A blind ended outpouching through the wall of a tubular organ or bounded cavity.', u'Pathbase: Curation', u'Additional structure whether normally located or not.', u'Pathbase: Curation', u'An abnormal passage between two internal organs or leading from a cavity to the body surface.', u'Pathbase: Curation', u'Protrusion of a loop or wall of an organ through an abnormal opening.', u'Pathbase: Pathology Committee', u'Occlusion ( partial or complete) of a lumen or space, internally by a space occupying mass or, in the case of stenosis, by local reduction in the diameter of a vessel, duct or the intestine.', u'Pathbase: Pathology Committee', u'Presence of a hole/channel through a normally imperforate structure often a membrane or septum.', u'Pathbase: Curation', u'Embryonic rest.', u'Pathbase: Pathology Committee', u'Persistence of an embryonic structure or tissue into the post-natal period in its normal location; (Chronological/temporal anomaly).', u'Pathbase: Curation', u'Any defect in the formation of septae not describable as perforation.', u'Pathbase: Pathology Committee', u'Localised dilation of an artery or heart chamber usually due to an acquired or congenital weakness of the wall of the artery or chamber.', u'Pathbase: Pathology Committee', u'An enlarged and often tortuous vein.']"
 s1="[u'intracellular and extracellular accumulation', u'Accumulation of substances within, on the surface of or between cells.', u'MPATH:33', u'Pathbase: Pathology Committee', u'Accumulation of substances within, on the surface of or between cells.', u'cell and tissue damage', u'The sum of morphological and functional disturbances induced by cell and tissue damage, either from intrinsic gene dysfunction or as a result of external factors.', u'MPATH:1', u'Pathbase: Curation', u'Amyloidosis', u'ISBN:0781727286', u'Extracellular deposition of amyloid protein.', u'ISBN:0781727286', u'Coloration, either normal or pathologic, of the skin or tissues resulting from a deposit of pigment.', u'ISBN:0781727286', u'Deposition of any homogeneous inorganic material.', u'Pathbase: Curation', u'Non-specified intra or extracellular deposition of protein.', u'Pathbase: Curation', u'Intracellular deposition of glycogen.', u'Pathbase: Curation', u'Hyaline degeneration, Eosinophilic cytoplasmic change', u'PMID: 11794381', u'Intracellular deposition of eosinophilic material.', u'Pathbase: Curation', u'Extra or intracellular deposition of lipid.', u'Pathbase: Curation', u'Extracellular deposition of uric acid crystals.', u'Pathbase: Pathology Committee', u'Extracellular accumulation of mucous secretions.', u':Murray AB; Luz A ( 1990 ) Acidophilic macrophage pneumonia in laboratory mice. Vet Pathol.  27; 274-81', u'A mixed inflammatory infiltrate in the pulmonary airways with predominant intra-alveolar macrophage component with intra- and extracellular, elongated, bright eosinophilic/acidophilic crystals.', u'ISBN:0781727286', u'Solid material formed by aggregation of discrete units or particles.', u'Pathbase: Curation', u'fatty change', u'adipose degeneration', u'fatty degeneration', u'Abnormal retention of lipids within a cell. Physically apparent as lipid within liposomes of parenchymal cells.', u'ISBN:9780702027888', u'Swelling of the kidneys when urine flow is obstructed in any of part of the urinary tract.', u'Pathbase: Pathology Committee', u'Accumulation of water in the ventricles of the brain.', u'Pathbase: Curation', u'Intra or extracellular deposition of cholesterol.', u'Pathbase: Curation', u'Accumulation of chitinase-like protein.']"
 
+log = open('pathfinderlog.txt','w')
+
 class MyQUEUE:	
     def __init__(self):
         self.holder = []
@@ -53,7 +55,13 @@ def SemSim(URI1,URI2):
     BFS(URI1,URI2,q)
 
 def BFS(URI1,URI2,q):
-    global queue,visited,done,DG
+    global queue,visited,done,DG,log
+
+    log = open('pathfinderlog.txt','a')                            
+    log.write('Start: ' + str(URI1) + '\n')
+    log.write('Target: ' + str(URI2) + '\n')
+    log.close()
+    
     # Sort list so node1-node2 == node2-node1
     lijstje=[URI1,URI2]
     URI1 = sorted(lijstje)[0]
@@ -65,8 +73,15 @@ def BFS(URI1,URI2,q):
     if len(c.fetchall()) > 0:
         print "Initial URI Path already exists!"
         c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(URI1,URI2))
-        print c.fetchall()
+        result = c.fetchall()
         c.close()
+        URI1 = result[0][0]
+        URI2 = result[0][1]
+        pathlength = result[0][2]
+        print "URI1:",URI1
+        print "URI2:",URI2
+        print "pathlength:",pathlength
+        # TODO: Fetch path with single SPARQL Query!
         done = True
         return 'finished'
     else:
@@ -109,9 +124,13 @@ def BFS(URI1,URI2,q):
                         showPath(queue,URI1,URI2)
                         if done == True:
                             string = "Found a link! Stored in path. Length:",len(path),"| Visited:",len(visited),"nodes."
-                            print string
-                            print path
-
+                            log = open('pathfinderlog.txt','a')                            
+                            log.write('path: ' + str(path) + '\n')
+                            log.write('length: ' + str(len(path)) + '\n')
+                            log.close()
+                            print string                            
+                            print 'Wrote path to log-file'
+                            
                             c = conn.cursor()
                             c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(URI1,URI2))
                             if len(c.fetchall()) > 0:
@@ -130,7 +149,11 @@ def BFS(URI1,URI2,q):
                         if done == True:
                             string = "Found a link! Stored in path. Length:",len(path),"| Visited:",len(visited),"nodes."
                             print string
-                            print path
+                            log = open('pathfinderlog.txt','a')                            
+                            log.write('path: ' + str(path) + '\n')
+                            log.write('length: ' + str(len(path)) + '\n')                            
+                            log.close()                            
+                            print 'Wrote path to log-file'
 
                             c = conn.cursor()
                             c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(URI1,URI2))
@@ -168,7 +191,6 @@ def createGraph(list_of_nodes):
     for i in range(1,len(list_of_nodes)):
         currentURI = list_of_nodes[i]
         otherURI = list_of_nodes[i-1]
-        
         SemSim(otherURI,currentURI)
 
         # plot BFS result
@@ -244,13 +266,13 @@ def showPath(list,start,target):
                 rightNode = hop[i][2]
                 if leftNode == start and rightNode == target:
                     path.append(hop[i])
-                    findFlips(path,start,target)
+                    # findFlips(path,start,target)
                     return path                    
                 if rightNode == start and leftNode == target:
                     path.append(hop[i])
-                    findFlips(path,start,target)                    
+                    # findFlips(path,start,target)                    
                     return path
-
+'''
 def findFlips(path,start,target):
     # START
     left = path[0][0]
@@ -267,7 +289,7 @@ def findFlips(path,start,target):
     if right == start:
         for i in range(1,len(path-1)):
             if path[i][2]
-
+'''
 def getNodes(URI,URI2):
     global context
     context=[]
