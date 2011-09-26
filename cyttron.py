@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import csv
 import nltk
 from nltk import word_tokenize, pos_tag, WordPunctTokenizer
@@ -11,6 +13,11 @@ from pprint import pprint
 import urllib, urllib2
 from BeautifulSoup import BeautifulSoup
 from gensim import corpora, models, similarities
+import os
+from lxml import etree
+import logging 
+logging.root.setLevel(logging.INFO)
+
 
 # sparql-lists
 label = []
@@ -19,6 +26,7 @@ bigList= []
 foundLabel= []
 foundDesc= []
 URI= []
+corpuslist=[]
 
 cyttronlist = []
 csvList = []
@@ -228,30 +236,31 @@ def descMatch(string,int):
     cleanDesc=[]
     stopset = set(stopwords.words('english'))
 
-    ### Corpus stuff: create a TF-IDF metric using cleaned descriptions as training corpus
-    # 1. tokenize + clean each desc entry, store in new list
-    for i in range(len(desc)):
-        cleanDesc.append(desc[i][0])
-    texts = [[word for word in x.lower().split() if word not in stopset and len(word) > 2] for x in cleanDesc]
+    BMCdict=corpora.Dictionary.load('db\\largedict.dict')
+    print BMCdict
+    mm = corpora.MmCorpus('db\\bmc.mm')
+    print mm
 
-    # 2. Convert text to vectors, using bag-of-words model
-    # Create a dictionary (word:occurrence) out of the cleaned list
-    # Create a corpus by converting the clean descriptions to a stream of vectors [BOW]
-    dictionary = corpora.Dictionary(texts)
-    corpus = [dictionary.doc2bow(x) for x in texts]
-
-    # Create a TF-IDF measure out of the BOW
-    tfidf = models.TfidfModel(corpus)
-
-    ### String stuff: tokenize, clean and convert cleaned String to BOW format using the dictionary generated from the descriptions
+    # Initialize model
+    tfidf = models.TfidfModel(corpus=mm,dictionary=BMCdict)    
     tokenString = WordPunctTokenizer().tokenize(string)
     cleanString = [token.lower() for token in tokenString if token.lower() not in stopset and len(token) > 2]
-    bowString = dictionary.doc2bow(cleanString)
+    bowString = BMCdict.doc2bow(cleanString)
+    print 'bowString:',bowString,'\n'
     tfidfString = tfidf[bowString]
+    print 'tfidfString:',tfidfString,'\n'
 
     ### Compare!
-    index = similarities.MatrixSimilarity(tfidf[corpus])
-    sims = index[tfidfString]
+    corpus_tfidf = tfidf[mm]
+    print corpus_tfidf
+    print "Created corpus_tfidf"
+    index = similarities.Similarity('db\\index\\i_',corpus_tfidf,482332,int)
+    index.save('db\\bmc.index')
+    print "Saved index to db/bmc.index"
+    similarity = index[tfidfString]
+    print similarity
+
+'''
     sims = sorted(enumerate(sims), key=lambda item: -item[1])
     sims = sims[:int]
     for i in range(len(sims)):
@@ -266,7 +275,58 @@ def descMatch(string,int):
         fd.write('";"' + str(sim) + '";"' + str(label) + '";"' + str(descString))
     fd.write('"\n')
     fd.close()
+'''
+def trainCorpus():
+    # Create a list 'corpuslist' of articles
+    global corpuslist
+    corpuslist=[]
+    directory = "e:\\articles\\articles\\"
+    files = os.listdir("e:\\articles\\articles\\")
+    for i in range(len(files)):
+        currentFile = directory + str(files[i])
+        doc = etree.parse(currentFile)
+        for x in doc.getiterator('bdy'):
+            for y in x[0].getiterator('p'):
+                text = y.text
+                if text is not None and '(To access the full article, please see PDF)' not in text and len(text)>44:
+                    corpuslist.append(text)
+    print len(corpuslist)
 
+def createCorpus():
+    global corpuslist,desc,BMCdict
+    
+    stopset = set(stopwords.words('english'))
+    cleanList=[]
+
+    # Create a cleanlist (tokenized, stopwords removed) out of all the articles
+    for i in range(len(corpuslist)):
+        corpusWords = WordPunctTokenizer().tokenize(corpuslist[i])
+        cleanWords = [token.lower() for token in corpusWords if token.lower() not in stopset and len(token) > 2]
+        cleanList.append(cleanWords)
+    print cleanList[324]
+
+    ### Corpus stuff: create a TF-IDF metric using corpuslist
+    class MyCorpus(object):
+        def __iter__(self):
+            for i in range(len(cleanList)):
+                yield dictionary.doc2bow(cleanList[i])
+    
+    # 2. Convert text to vectors, using bag-of-words model
+    # Tokenize + clean each corpuslist entry
+    dictionary = corpora.Dictionary(cleanList[i] for i in range(len(cleanList)))
+    dictionary.compactify()
+    dictionary.save('db\\BMC.dict')
+    print dictionary
+
+    corpus = MyCorpus()
+    print corpus
+    tfidf = models.TfidfModel(corpus,id2word=dictionary)
+    print tfidf
+
+    corpus_tfidf = tfidf[corpus]
+    index = similarities.Similarity(tfidf[corpus_tfidf])
+    index.save('db\\bmc.index')
+        
 #======================================================#
 # Generate syns from string, gensim similarity         #
 #======================================================#    
