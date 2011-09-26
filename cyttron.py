@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import csv
 import nltk
 from nltk import word_tokenize, pos_tag, WordPunctTokenizer
@@ -276,21 +274,6 @@ def descMatch(string,int):
     fd.write('"\n')
     fd.close()
 '''
-def trainCorpus():
-    # Create a list 'corpuslist' of articles
-    global corpuslist
-    corpuslist=[]
-    directory = "e:\\articles\\articles\\"
-    files = os.listdir("e:\\articles\\articles\\")
-    for i in range(len(files)):
-        currentFile = directory + str(files[i])
-        doc = etree.parse(currentFile)
-        for x in doc.getiterator('bdy'):
-            for y in x[0].getiterator('p'):
-                text = y.text
-                if text is not None and '(To access the full article, please see PDF)' not in text and len(text)>44:
-                    corpuslist.append(text)
-    print len(corpuslist)
 
 def createCorpus():
     global corpuslist,desc,BMCdict
@@ -313,9 +296,7 @@ def createCorpus():
     
     # 2. Convert text to vectors, using bag-of-words model
     # Tokenize + clean each corpuslist entry
-    dictionary = corpora.Dictionary(cleanList[i] for i in range(len(cleanList)))
-    dictionary.compactify()
-    dictionary.save('db\\BMC.dict')
+    dictionary = Dictionary.load('db\\BMC.dict')
     print dictionary
 
     corpus = MyCorpus()
@@ -324,9 +305,25 @@ def createCorpus():
     print tfidf
 
     corpus_tfidf = tfidf[corpus]
-    index = similarities.Similarity(tfidf[corpus_tfidf])
+    index = similarities.Similarity('db\\index\\i_',corpus_tfidf,162291,num_best=int)
     index.save('db\\bmc.index')
-        
+
+def trainCorpus():
+    # Create a list 'corpuslist' of articles
+    global corpuslist
+    corpuslist=[]
+    directory = "e:\\articles\\articles\\"
+    files = os.listdir("e:\\articles\\articles\\")
+    for i in range(len(files)):
+        currentFile = directory + str(files[i])
+        doc = etree.parse(currentFile)
+        for x in doc.getiterator('bdy'):
+            for y in x[0].getiterator('p'):
+                text = y.text
+                if text is not None and '(To access the full article, please see PDF)' not in text and len(text)>44:
+                    corpuslist.append(text)
+    print len(corpuslist)
+    createCorpus()
 #======================================================#
 # Generate syns from string, gensim similarity         #
 #======================================================#    
@@ -416,12 +413,12 @@ def cyttron(listname):
         listname.append(str(line[0]))
     print len(listname)
 
-def csv2list(fileName):
+def csv2list(fileName,columnNr):
     global csvList
     csvList=[]
     f = csv.reader(open(fileName,'rb'), delimiter=';')
     for line in f:
-        csvList.append(str(line))
+        csvList.append(str(line[columnNr]))
     print csvList
 
 def cleanCSV(csvread):
