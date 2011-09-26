@@ -251,6 +251,8 @@ def getNodes(URI,URI2):
     global context
     context=[]
     sparql = SPARQLWrapper(endpoint)
+
+    # Direct neighbours
     querystring="SELECT DISTINCT ?p ?s WHERE { <" + str(URI) + "> ?p ?s . FILTER (isURI(?s ))  }"
     print URI
     sparql.setReturnFormat(JSON)
@@ -260,12 +262,30 @@ def getNodes(URI,URI2):
     for x in results["results"]["bindings"]:
         context.append([URI,x["p"]["value"],x["s"]["value"]])
     querystring="SELECT DISTINCT ?o ?p WHERE { ?o ?p <" + str(URI) + "> . FILTER (isURI(?o )) }"
+    sparql.setReturnFormat(JSON)
+    sparql.addCustomParameter("infer","false")
     sparql.setQuery(querystring)
     results = sparql.query().convert()
     for x in results["results"]["bindings"]:
         context.append([x["o"]["value"],x["p"]["value"],URI])
-    return context
 
+    # BNode neighbours
+    querystring="PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> SELECT DISTINCT ?s2 WHERE { <" + str(URI) + "> ?p ?s . ?s ?x ?s2 . FILTER (isBlank(?s )) . }"
+    sparql.setReturnFormat(JSON)
+    sparql.addCustomParameter("infer","false")
+    sparql.setQuery(querystring)
+    results = sparql.query().convert()
+    for x in results["results"]["bindings"]:
+        context.append([URI,x["x"]["value"],x["s2"]["value"]])
+    querystring="PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> SELECT DISTINCT ?s2 WHERE { ?o ?p <" + str(node1) + "> . ?o ?x ?s2 . FILTER (isBlank(?o )) . }"
+    sparql.setReturnFormat(JSON)
+    sparql.addCustomParameter("infer","false")
+    sparql.setQuery(querystring)
+    results = sparql.query().convert()
+    for x in results["results"]["bindings"]:
+        context.append([x["s2"]["value"],x["x"]["value"],URI])
+
+    return context
 #======================================================#
 # 'shared parents' stuff                               #
 #======================================================#
