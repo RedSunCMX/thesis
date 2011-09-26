@@ -416,12 +416,12 @@ def cyttron(listname):
         listname.append(str(line[0]))
     print len(listname)
 
-def csv2list(fileName,columnNr):
+def csv2list(fileName):
     global csvList
     csvList=[]
     f = csv.reader(open(fileName,'rb'), delimiter=';')
     for line in f:
-        csvList.append(str(line[columnNr]))
+        csvList.append(str(line))
     print csvList
 
 def cleanCSV(csvread):
