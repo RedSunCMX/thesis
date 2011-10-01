@@ -554,29 +554,3 @@ def getContext(node1):
     print "Neighbours:",neighbours
     final = [direct,neighbours]
     print "\nFinal:",final
-
-def compareStrings(string1,string2):
-    stopset = set(stopwords.words('english'))
-
-    ### Corpus stuff: create a TF-IDF metric using cleaned string1 as training corpus
-    # 1. tokenize + clean string1, store in new list
-    string1 = [string1]
-    words = [[word for word in x.lower().split() if word not in stopset and len(word) > 2] for x in string1]
-    print words,"\n"
-    
-    dictionary = corpora.Dictionary(words)
-    print dictionary.token2id,"\n"
-    corpus = [dictionary.doc2bow(x) for x in words]
-
-    tfidf = models.TfidfModel(corpus)
-    
-    ### String stuff: tokenize, clean and convert cleaned String to BOW format using the dictionary generated from the descriptions
-    token2 = WordPunctTokenizer().tokenize(string2)
-    cleanString = [token.lower() for token in token2 if token.lower() not in stopset and len(token) > 2]
-    vec_bow = dictionary.doc2bow(cleanString)
-    print "vec_bow:",vec_bow,"\n"
-    tfidfString = tfidf[vec_bow]
-    
-    index = similarities.MatrixSimilarity(tfidf[corpus])
-    sims = index[tfidf_string]
-    print list(enumerate(sims))
