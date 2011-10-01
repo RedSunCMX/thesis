@@ -20,8 +20,8 @@ iup = 0
 endpoint = 'http://dvdgrs-900:8080/openrdf-sesame/repositories/cyttron'
 done = False
 
-URI1 = 'http://purl.org/obo/owl/MPATH#MPATH_127'
-URI2 = 'http://purl.org/obo/owl/MPATH#MPATH_154'
+URIx = 'http://purl.org/obo/owl/MPATH#MPATH_127'
+URIy = 'http://purl.org/obo/owl/MPATH#MPATH_154'
 
 s2 = "[u'developmental and adult structural  defect', u'Structural, physical or other general defect of prenatal development of the embryo, the placenta or the adult.', u'MPATH:56', u'Pathbase: Pathology Committee', u'Structural, physical or other general defect of prenatal development of the embryo, the placenta or the adult.', u'developmental and structural abnormality', u'Developmental and structural abnormalities occurring during embryonic development or during adult life.', u'MPATH:55', u'ISBN:0781727286', u'A focal malformation resembling a neoplasm which results from faulty development of an organ; composed of an abnormal mixture of tissue elements, or an abnormal proportion of a single element. Growth and location are usually normal for that tissue cf. Heterotopia/Choristoma MPATH:76/MPATH:477.', u'Pathbase: Curation', u'Any aberration of the normal symmetrical organisation of the body pattern.', u'Pathbase: Pathology Committee', u'Increase in the diameter of an orifice or tubular structure beyond its normal dimensions.', u'ISBN:0781727286', u'Similar to hamartoma, including the mass lesion requirement, but unlike hamartoma, includes heterotopic tissue of an adult or embryonic nature ( topographical and developmental anomaly).', u'Pathbase: Curation', u'Choristoblastoma', u'Pathbase: Pathology Committee', u'The twisting of a bodily organ or part on its own axis.', u'Pathbase: Curation', u'Failure of two cavities, voids or lumens to connect.', u'Pathbase: Curation', u'Aberrant branch or branching pattern of a branched structure such as the bronchus.', u'Pathbase: Curation', u'Inappropriate curvature of a structure.', u'Pathbase: Pathology Committee', u'Formation of an epithelium bounded cavity not associated with neoplasia.', u'Millodot; Michel and Daniel Laby. Dictionary of Ophthalmology. London: Butterworth Heinemann; 2002', u'An adhesion, usually between the iris and the cornea or the lens capsule.', u'ISBN:0781727286', u'Turning in of the edges of a structure.', u'ISBN:0781727286', u'Tearing away or separation of two structures or parts.', u'ISBN:0781727286', u'To sink down, said of an organ or other part. A sinking of an organ or other part, especially its appearance at a natural or artificial orifice.', u'Pathbase: Curation', u'A blind ended outpouching through the wall of a tubular organ or bounded cavity.', u'Pathbase: Curation', u'Additional structure whether normally located or not.', u'Pathbase: Curation', u'An abnormal passage between two internal organs or leading from a cavity to the body surface.', u'Pathbase: Curation', u'Protrusion of a loop or wall of an organ through an abnormal opening.', u'Pathbase: Pathology Committee', u'Occlusion ( partial or complete) of a lumen or space, internally by a space occupying mass or, in the case of stenosis, by local reduction in the diameter of a vessel, duct or the intestine.', u'Pathbase: Pathology Committee', u'Presence of a hole/channel through a normally imperforate structure often a membrane or septum.', u'Pathbase: Curation', u'Embryonic rest.', u'Pathbase: Pathology Committee', u'Persistence of an embryonic structure or tissue into the post-natal period in its normal location; (Chronological/temporal anomaly).', u'Pathbase: Curation', u'Any defect in the formation of septae not describable as perforation.', u'Pathbase: Pathology Committee', u'Localised dilation of an artery or heart chamber usually due to an acquired or congenital weakness of the wall of the artery or chamber.', u'Pathbase: Pathology Committee', u'An enlarged and often tortuous vein.']"
 s1="[u'intracellular and extracellular accumulation', u'Accumulation of substances within, on the surface of or between cells.', u'MPATH:33', u'Pathbase: Pathology Committee', u'Accumulation of substances within, on the surface of or between cells.', u'cell and tissue damage', u'The sum of morphological and functional disturbances induced by cell and tissue damage, either from intrinsic gene dysfunction or as a result of external factors.', u'MPATH:1', u'Pathbase: Curation', u'Amyloidosis', u'ISBN:0781727286', u'Extracellular deposition of amyloid protein.', u'ISBN:0781727286', u'Coloration, either normal or pathologic, of the skin or tissues resulting from a deposit of pigment.', u'ISBN:0781727286', u'Deposition of any homogeneous inorganic material.', u'Pathbase: Curation', u'Non-specified intra or extracellular deposition of protein.', u'Pathbase: Curation', u'Intracellular deposition of glycogen.', u'Pathbase: Curation', u'Hyaline degeneration, Eosinophilic cytoplasmic change', u'PMID: 11794381', u'Intracellular deposition of eosinophilic material.', u'Pathbase: Curation', u'Extra or intracellular deposition of lipid.', u'Pathbase: Curation', u'Extracellular deposition of uric acid crystals.', u'Pathbase: Pathology Committee', u'Extracellular accumulation of mucous secretions.', u':Murray AB; Luz A ( 1990 ) Acidophilic macrophage pneumonia in laboratory mice. Vet Pathol.  27; 274-81', u'A mixed inflammatory infiltrate in the pulmonary airways with predominant intra-alveolar macrophage component with intra- and extracellular, elongated, bright eosinophilic/acidophilic crystals.', u'ISBN:0781727286', u'Solid material formed by aggregation of discrete units or particles.', u'Pathbase: Curation', u'fatty change', u'adipose degeneration', u'fatty degeneration', u'Abnormal retention of lipids within a cell. Physically apparent as lipid within liposomes of parenchymal cells.', u'ISBN:9780702027888', u'Swelling of the kidneys when urine flow is obstructed in any of part of the urinary tract.', u'Pathbase: Pathology Committee', u'Accumulation of water in the ventricles of the brain.', u'Pathbase: Curation', u'Intra or extracellular deposition of cholesterol.', u'Pathbase: Curation', u'Accumulation of chitinase-like protein.']"
@@ -81,7 +81,11 @@ def BFS(URI1,URI2,q):
         print "URI1:",URI1
         print "URI2:",URI2
         print "pathlength:",pathlength
+        log = open('pathfinderlog.txt','a')
+        log.write('length: ' + str(pathlength) + '\n')
+        log.close()        
         # TODO: Fetch path with single SPARQL Query!
+        
         done = True
         return 'finished'
     else:
@@ -106,7 +110,6 @@ def BFS(URI1,URI2,q):
                     if GR.has_edge((node1,node2)) is False:
                         GR.add_edge((node1,node2),label=str(edgeLabel))
 
-                    # Check if path/edge exists in SQLite DB:
                     c = conn.cursor()
                     c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(node1,node2))
                     if len(c.fetchall()) > 0:
@@ -116,8 +119,6 @@ def BFS(URI1,URI2,q):
                         c.execute('insert into thesis values (?,?,1)',(node1,node2))
                         conn.commit()
                     c.close()
-
-                    # print "Added:",node1,">",edgeLabel,">",node2
 
                     if node1 == URI2:
                         done = True
@@ -206,7 +207,7 @@ def createGraph(list_of_nodes):
                 GR.add_edge((nodeLeft,nodeRight),label=str(edgeLabel))
 
         # plot parent1
-        findParents([[URI1]])
+        findParents([[currentURI]])
         if GR.has_node(pathList[0][0]) is False:
             GR.add_node(pathList[0][0])
         for i in range(1,len(pathList)):
@@ -218,7 +219,7 @@ def createGraph(list_of_nodes):
                 GR.add_edge((prevNode,node),label='rdfs:subClassOf')
 
         # plot parent2
-        findParents([[URI2]])
+        findParents([[otherURI]])
         if GR.has_node(pathList[0][0]) is False:
             GR.add_node(pathList[0][0])
         for i in range(1,len(pathList)):
@@ -265,37 +266,53 @@ def showPath(list,start,target):
                 leftNode = hop[i][0]
                 rightNode = hop[i][2]
                 if leftNode == start and rightNode == target:
+                    print "LtR"
                     path.append(hop[i])
-                    # findFlips(path,start,target)
+                    findFlips(path,start,target)
                     return path                    
                 if rightNode == start and leftNode == target:
+                    print "RtL"
                     path.append(hop[i])
-                    # findFlips(path,start,target)                    
+                    findFlips(path,start,target)
                     return path
-'''
-def findFlips(path,start,target):
-    # START
-    left = path[0][0]
-    right = path[0][2]
-    if left == start:
-        # Check to see if path[i+1][0] == right
-        # If not: direction flipped
-        for i in range(1,len(path)-1):
-            if path[i][0] == right:
-                print "No flip"
-            else:
-                print "Direction flipped"
 
-    if right == start:
-        for i in range(1,len(path-1)):
-            if path[i][2]
-'''
+def findFlips(path,start,target):
+    flips = ""
+    count=0
+    for i in range(0,len(path)):
+        prevLeft = path[i-1][0]
+        prevRight = path[i-1][2]
+        
+        left = path[i][0]
+        right = path[i][2]
+        print left,right
+
+        if left == prevRight:
+            flips += "U"
+        if right == prevRight:
+            flips += "D"
+        if right == prevLeft:
+            flips += "D"
+    print flips
+    for i in range(1,len(flips)):
+        prevLetter = flips[i-1]
+        letter = flips[i]
+        if letter == prevLetter:
+            count += 0
+        else:
+            count += 1
+    log = open('pathfinderlog.txt','a')                            
+    log.write('Direction flips: ' + str(count) + '\n')
+    log.close()
+    return count
+
 def getNodes(URI,URI2):
     global context
     context=[]
     sparql = SPARQLWrapper(endpoint)
+    
     # Direct neighbours
-    querystring="SELECT DISTINCT ?p ?s WHERE { <" + str(URI) + "> ?p ?s . FILTER (isURI(?s ))  }"
+    querystring="PREFIX obo: <http://purl.org/obo/owl> SELECT DISTINCT ?p ?s WHERE { <" + str(URI) + "> ?p ?s . FILTER (isURI(?s )) . }"
     print URI
     sparql.setReturnFormat(JSON)
     sparql.addCustomParameter("infer","false")
@@ -303,34 +320,39 @@ def getNodes(URI,URI2):
     results = sparql.query().convert()
     for x in results["results"]["bindings"]:
         context.append([URI,x["p"]["value"],x["s"]["value"]])
-    querystring="SELECT DISTINCT ?o ?p WHERE { ?o ?p <" + str(URI) + "> . FILTER (isURI(?o )) }"
+    querystring="SELECT DISTINCT ?o ?p WHERE { ?o ?p <" + str(URI) + "> . FILTER (isURI(?o )) . }"
+    sparql.addCustomParameter("infer","false")
     sparql.setQuery(querystring)
     results = sparql.query().convert()
     for x in results["results"]["bindings"]:
         context.append([x["o"]["value"],x["p"]["value"],URI])
 
     # BNode neighbours
-    querystring="PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> SELECT DISTINCT ?s2 ?x WHERE { <" + str(URI) + "> ?p ?s . ?s ?x ?s2 . FILTER (isBlank(?s )) . FILTER (isURI(?s2)) .}"
+    querystring="SELECT DISTINCT ?s2 ?p WHERE { <" + str(URI) + "> ?p ?s . ?s ?x ?s2 . FILTER (isBlank(?s )) . FILTER (isURI(?s2)) .}"
     sparql.setReturnFormat(JSON)
     sparql.addCustomParameter("infer","false")
     sparql.setQuery(querystring)
     results = sparql.query().convert()
     for x in results["results"]["bindings"]:
-        context.append([URI,x["x"]["value"],x["s2"]["value"]])
-    querystring="PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> SELECT DISTINCT ?s2 ?x WHERE { ?o ?p <" + str(URI) + "> . ?s2 ?x ?o . FILTER (isBlank(?o )) . FILTER (isURI(?s2)) .}"
+        context.append([URI,x["p"]["value"],x["s2"]["value"]])
+    querystring="SELECT DISTINCT ?s2 ?p WHERE { ?o ?p <" + str(URI) + "> . ?o ?x ?s2 . FILTER (isBlank(?o )) . FILTER (isURI(?s2)) .}"
     sparql.setReturnFormat(JSON)
     sparql.addCustomParameter("infer","false")
     sparql.setQuery(querystring)
     results = sparql.query().convert()
     for x in results["results"]["bindings"]:
-        context.append([x["s2"]["value"],x["x"]["value"],URI])
+        context.append([x["s2"]["value"],x["p"]["value"],URI])
     return context    
 
 #======================================================#
 # 'shared parents' stuff                               #
 #======================================================#
+
+def findLCS(URI1,URI2):
+    LCS = [[findCommonParents(URI1,URI2)]]
+    findParents(LCS)
+    
 def findParents(URI):
-    # In: list with list(s) of URIs [[URI1,URI2,URI3]]
     global iup, pathList,endpoint
     list_out=[]
     iup += 1
@@ -352,6 +374,9 @@ def findParents(URI):
         print "[findParents]\t",URI[0][0]
         print "[findParents]\t","Hop | Path:"
         print "[findParents]\t","Depth:",len(URI)
+        log = open('pathfinderlog.txt','a')                            
+        log.write('depth of ' + str(URI[0][0]) + ": " + str(len(URI)) + '\n')
+        log.close()
         for i in range(len(URI)):
             print "[findParents]\t",i,"  |",URI[i]
         iup=0
@@ -394,7 +419,7 @@ def findCommonParents(URI1,URI2):
                         parent1 = result1
                         parent2 = result2
                         if done == True:
-                            return parent1,parent2
+                            return result1[i][i2]
     return parent1,parent2
 
 def findMultiParent(URIlist):
