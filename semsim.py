@@ -55,17 +55,17 @@ def SemSim(URI1,URI2):
     BFS(URI1,URI2,q)
 
 def BFS(URI1,URI2,q):
-    global queue,visited,done,DG,log
+    global queue,visited,done,DG,log    
 
-    log = open('pathfinderlog.txt','a')                            
-    log.write('Start: ' + str(URI1) + '\n')
-    log.write('Target: ' + str(URI2) + '\n')
-    log.close()
-    
     # Sort list so node1-node2 == node2-node1
     lijstje=[URI1,URI2]
     URI1 = sorted(lijstje)[0]
     URI2 = sorted(lijstje)[1]
+
+    log = open('pathfinderlog.txt','a')                            
+    log.write('"node1";"' + str(URI1) + '"\n')
+    log.write('"node2";"' + str(URI2) + '"\n')
+    log.close()
 
     # Check if initial URI-path is already in db
     c = conn.cursor()
@@ -82,9 +82,11 @@ def BFS(URI1,URI2,q):
         print "URI2:",URI2
         print "pathlength:",pathlength
         log = open('pathfinderlog.txt','a')
-        log.write('length: ' + str(pathlength) + '\n')
-        log.close()        
-        # TODO: Fetch path with single SPARQL Query!
+        log.write('"pathlength";"' + str(pathlength) + '"\n')
+        log.close()
+        # TODO
+        # Fetch path (single SPARQL Query)
+        # log.write(directionflips)
         
         done = True
         return 'finished'
@@ -126,8 +128,7 @@ def BFS(URI1,URI2,q):
                         if done == True:
                             string = "Found a link! Stored in path. Length:",len(path),"| Visited:",len(visited),"nodes."
                             log = open('pathfinderlog.txt','a')                            
-                            log.write('path: ' + str(path) + '\n')
-                            log.write('length: ' + str(len(path)) + '\n')
+                            log.write('"pathlength";"' + str(len(path)) + '"\n')
                             log.close()
                             print string                            
                             print 'Wrote path to log-file'
@@ -141,8 +142,9 @@ def BFS(URI1,URI2,q):
                                 c.execute('insert into thesis values (?,?,?)',(URI1,URI2,len(path)))
                                 conn.commit()
                             c.close()
-                            
+                            findFlips(path,URI1,URI2)
                             return len(path)
+                        
                     if node2 == URI2:
                         print "\nFound a link!"
                         done = True
@@ -151,9 +153,8 @@ def BFS(URI1,URI2,q):
                             string = "Found a link! Stored in path. Length:",len(path),"| Visited:",len(visited),"nodes."
                             print string
                             log = open('pathfinderlog.txt','a')                            
-                            log.write('path: ' + str(path) + '\n')
-                            log.write('length: ' + str(len(path)) + '\n')                            
-                            log.close()                            
+                            log.write('"pathlength";"' + str(len(path)) + '"\n')
+                            log.close()
                             print 'Wrote path to log-file'
 
                             c = conn.cursor()
@@ -165,7 +166,7 @@ def BFS(URI1,URI2,q):
                                 c.execute('insert into thesis values (?,?,?)',(URI1,URI2,len(path)))
                                 conn.commit()
                             c.close()
-                    
+                            findFlips(path,URI1,URI2)                            
                             return len(path)
                         
                     if node1 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node1 and 'http://www.geneontology.org/formats/oboInOwl#ObsoleteClass' not in node1:
@@ -208,6 +209,9 @@ def createGraph(list_of_nodes):
 
         # plot parent1
         findParents([[currentURI]])
+        log = open('pathfinderlog.txt','a')                            
+        log.write('"node1 depth: ' + str(pathList[0][0]) + '";"' + str(len(pathList)) + '"\n')
+        log.close()
         if GR.has_node(pathList[0][0]) is False:
             GR.add_node(pathList[0][0])
         for i in range(1,len(pathList)):
@@ -220,6 +224,9 @@ def createGraph(list_of_nodes):
 
         # plot parent2
         findParents([[otherURI]])
+        log = open('pathfinderlog.txt','a')                            
+        log.write('"node2 depth: ' + str(pathList[0][0]) + '";"' + str(len(pathList)) + '"\n')
+        log.close()        
         if GR.has_node(pathList[0][0]) is False:
             GR.add_node(pathList[0][0])
         for i in range(1,len(pathList)):
@@ -235,6 +242,7 @@ def createGraph(list_of_nodes):
     dotLabel = relabel(dot)
     f = open('graph.gv','w')
     f.write(dotLabel)
+    findLCS(list_of_nodes[0],list_of_nodes[1])
 
 def relabel(text):
     # from URI to label
@@ -266,14 +274,10 @@ def showPath(list,start,target):
                 leftNode = hop[i][0]
                 rightNode = hop[i][2]
                 if leftNode == start and rightNode == target:
-                    print "LtR"
                     path.append(hop[i])
-                    findFlips(path,start,target)
                     return path                    
                 if rightNode == start and leftNode == target:
-                    print "RtL"
                     path.append(hop[i])
-                    findFlips(path,start,target)
                     return path
 
 def findFlips(path,start,target):
@@ -302,7 +306,7 @@ def findFlips(path,start,target):
         else:
             count += 1
     log = open('pathfinderlog.txt','a')                            
-    log.write('Direction flips: ' + str(count) + '\n')
+    log.write('"directionflips:";"' + str(count) + '"\n')
     log.close()
     return count
 
@@ -351,6 +355,9 @@ def getNodes(URI,URI2):
 def findLCS(URI1,URI2):
     LCS = [[findCommonParents(URI1,URI2)]]
     findParents(LCS)
+    log = open('pathfinderlog.txt','a')                            
+    log.write('"LCS depth: ' + str(pathList[0][0]) + '";"' + str(len(pathList)) + '"\n')
+    log.close()
     
 def findParents(URI):
     global iup, pathList,endpoint
@@ -374,9 +381,6 @@ def findParents(URI):
         print "[findParents]\t",URI[0][0]
         print "[findParents]\t","Hop | Path:"
         print "[findParents]\t","Depth:",len(URI)
-        log = open('pathfinderlog.txt','a')                            
-        log.write('depth of ' + str(URI[0][0]) + ": " + str(len(URI)) + '\n')
-        log.close()
         for i in range(len(URI)):
             print "[findParents]\t",i,"  |",URI[i]
         iup=0
@@ -459,9 +463,9 @@ def getContext(node1):
     sparql.setQuery(querystring)
     results = sparql.query().convert()
     for x in results["results"]["bindings"]:
-        if 'http://www.w3.org/2002/07/owl#Class' not in x["s"]["value"]:
-            context1.append(x["s"]["value"])
-            print "Own OUT bnode-literals:",x["s"]["value"]
+        if 'http://www.w3.org/2002/07/owl#Class' not in x["desc"]["value"]:
+            context1.append(x["desc"]["value"])
+            print "Own OUT bnode-literals:",x["desc"]["value"]
 
     # Get own in literals
     querystring="SELECT DISTINCT ?o WHERE { ?o ?p <" + str(node1) + "> . FILTER (isLiteral(?o )) }"
@@ -482,8 +486,9 @@ def getContext(node1):
     for x in results["results"]["bindings"]:
         context1.append(x["desc"]["value"])
         print "Own IN literals:",x["desc"]["value"]
-
-    print "Final direct:",context1
+    direct = context1
+    print "Final direct:",direct
+    context1=[]
 
     # Get all out neighbour URI's
     querystring="SELECT DISTINCT ?s WHERE { <" + str(node1) + "> ?p ?s . FILTER (isURI(?s ))  }"
@@ -544,7 +549,11 @@ def getContext(node1):
         results = sparql.query().convert()
         for x in results["results"]["bindings"]:
             context1.append(x["desc"]["value"])
-    print "Final:",context1
+    neighbours = context1
+    print "Direct:",direct
+    print "Neighbours:",neighbours
+    final = [direct,neighbours]
+    print "\nFinal:",final
 
 def compareStrings(string1,string2):
     stopset = set(stopwords.words('english'))
