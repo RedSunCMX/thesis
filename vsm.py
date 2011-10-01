@@ -9,15 +9,16 @@ from lxml import etree
 corpuslist=[]
 cleancorpus=[]
 
-def corpus():
+def doCorpus():
     # Create a list 'corpuslist' of articles
     global corpuslist
     corpuslist=[]
     corpuslist2=[]
-    directory = "e:\\articles\\articles\\"
-    files = os.listdir("e:\\articles\\articles\\")
-    for i in range(len(files)):
+    directory = "E:\\articles\\articles\\"
+    files = os.listdir("E:\\articles\\articles\\")
+    for i in range(1000):
         currentFile = directory + str(files[i])
+        print currentFile
         doc = etree.parse(currentFile)
         r = doc.xpath('/art/bdy')
         bdy = r[0]
@@ -49,11 +50,11 @@ def compareDoc(doc1,doc2):
     print len(tfidf1)
     tfidf2 = tfidf[bowdoc2]
     print len(tfidf2)
-    index = similarities.MatrixSimilarity([tfidf1])
+    index = similarities.MatrixSimilarity([tfidf1],num_features=len(dictionary))
     sims = index[tfidf2]
     print list(enumerate(sims))
 
-corpus()
+doCorpus()
 cleanCorpus(corpuslist)
 dictionary=corpora.Dictionary(cleancorpus)
 print dictionary
@@ -64,4 +65,3 @@ string_bow = dictionary.doc2bow(string_vec)
 print string_bow
 corpus = [ dictionary.doc2bow(x) for x in cleancorpus ]
 tfidf = models.TfidfModel(corpus)
-
