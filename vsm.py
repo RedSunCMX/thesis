@@ -6,10 +6,7 @@ logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=lo
 import os
 from lxml import etree
 
-corpuslist=[]
-cleancorpus=[]
-
-def doCorpus():
+def cleanCorpus():
     corpustxt = open('corpus.txt','w')
     corpustxt.close()
     directory = "E:\\articles\\articles\\"
@@ -27,7 +24,7 @@ def doCorpus():
             corpustxt = open('corpus.txt','a')
             corpustxt.write('"'+clean.encode('utf-8')+'"\n')
             corpustxt.close()
-    print len(corpuslist),'articles'
+    print 'Finished'
 
 def cleanDoc(doc):
     # Tokenize + remove stopwords of a string
@@ -36,16 +33,10 @@ def cleanDoc(doc):
     cleanString = [token.lower() for token in tokenString if token.lower() not in stopset and len(token) > 2]
     return cleanString
 
-def cleanCorpus(corpuslist):
-    global cleanCorpus
-    for i in range(len(corpuslist)):
-        cleancorpus.append(cleanDoc(corpuslist[i]))
-    print len(cleancorpus),'articles cleaned'
-
 class MyCorpus(object):
     def __iter__(self):
-        for i in range(len(cleancorpus)):
-            yield dictionary.doc2bow(cleancorpus[i])
+        for line in open('corpus.txt'):
+            yield dictionary.doc2bow(line.lower().split())
 
 def compareDoc(doc1,doc2):
     doc1 = cleanDoc(doc1)
@@ -60,9 +51,7 @@ def compareDoc(doc1,doc2):
     sims = index[tfidf2]
     print list(enumerate(sims))
 
-doCorpus()
-cleanCorpus(corpuslist)
-corpus = MyCorpus()
-dictionary=corpora.Dictionary(cleancorpus)
+dictionary=corpora.Dictionary(open('corpus.txt'))
 print dictionary
+corpus = MyCorpus()
 tfidf = models.TfidfModel(corpus)
