@@ -229,12 +229,33 @@ def wordNetWordMatch(string):
 
 # Gensim
 
+def buildCorpus():
+    corpustxt = open('stemcorpus.txt','w')
+    corpustxt.close()
+    directory = "E:\\articles\\articles\\"
+    files = os.listdir("E:\\articles\\articles\\")
+    for i in range(len(files)):
+        currentFile = directory + str(files[i])
+        doc = etree.parse(currentFile)
+        r = doc.xpath('/art/bdy')
+        bdy = r[0]
+        results = [ unicode(child.text) for child in bdy.iterdescendants() if child.tag == 'p' and child.text is not None and child.text != '(To access the full article, please see PDF)' and child.text != '"To access the full article, please see PDF"']
+        temp = '. '.join(results)
+        if len(temp) > 0:
+            print files[i]
+            clean = ' '.join(cleanDoc(temp))
+            corpustxt = open('stemcorpus.txt','a')
+            corpustxt.write('"'+clean.encode('utf-8')+'"\n')
+            corpustxt.close()
+    print 'Finished'
+
 def cleanDoc(doc):
-    # Tokenize + remove stopwords of a string
-    stopset = set(stopwords.words('english'))    
-    tokenString = WordPunctTokenizer().tokenize(doc)
-    cleanString = [token.lower() for token in tokenString if token.lower() not in stopset and len(token) > 2]
-    return cleanString
+    stopset = set(stopwords.words('english'))
+    stemmer = nltk.PorterStemmer()
+    tokens = WordPunctTokenizer().tokenize(doc)
+    clean = [token.lower() for token in tokens if token.lower() not in stopset and len(token) > 2]
+    final = [stemmer.stem(word) for word in clean]
+    return final
 
 def compareDoc(doc1,doc2):
     doc1 = cleanDoc(doc1)
@@ -242,18 +263,16 @@ def compareDoc(doc1,doc2):
     bowdoc1 = dictionary.doc2bow(doc1)
     bowdoc2 = dictionary.doc2bow(doc2)
     tfidf1 = tfidf[bowdoc1]
-    print len(tfidf1)
     tfidf2 = tfidf[bowdoc2]
-    print len(tfidf2)
     index = similarities.MatrixSimilarity([tfidf1],num_features=len(dictionary))
-    sims = index[tfidf2]
-    print sims
+    sim = index[tfidf2]
+    print str(round(sim*100,2))+'% similar'
 
 def descMatch(doc):
     global dictionary,desc,labelDict
-    print doc
+    doc = doc.encode('utf-8')
     fd = open('log\descMatch.csv','a')
-    fd.write('"' + str(doc))
+    fd.write('"' + doc)
     fd.close()
 #1 clean string, convert to bow, convert to tfidf
     cleanString = cleanDoc(doc)
@@ -273,15 +292,19 @@ def descMatch(doc):
     print "\n"
     for i in range(len(sims)):
         ID = sims[i][0]
-        sim = sims[i][1]*100
+        sim = str(sims[i][1]*100)
+        sim = sim.encode('utf-8')
         
         descString = desc[ID][0]
         URI = desc[ID][1]
         label = labelDict[URI]
+
+        label = label.encode('utf-8')
+        descString = descString.encode('utf-8')
         
         print "Label:",label,"\n","Similarity:",sim,"\n","Description:",descString + "\n"
         fd = open('log\descMatch.csv','a')
-        fd.write('";"' + str(sim) + '";"' + str(label) + '";"' + str(descString))
+        fd.write('";"' + sim + '";"' + label + '";"' + descString)
         fd.close()
     fd = open('log\descMatch.csv','a')    
     fd.write('"\n')
@@ -353,6 +376,7 @@ def wikiGet(title):
     text = str(soup.findAll('p'))
     wikiTxt = nltk.clean_html(text)
     wikiTxt = wikiTxt.replace(';','')
+    wikiTxt = wikiTxt.decode('utf-8')
     print title,'in wikiTxt'
 
 #======================================================#
