@@ -13,9 +13,15 @@ from BeautifulSoup import BeautifulSoup
 from gensim import corpora, models, similarities
 import os
 from lxml import etree
-import logging 
+import logging
 logging.root.setLevel(logging.INFO)
 
+dictionary = corpora.Dictionary.load('vsm\\dictio.dict')
+print dictionary
+corpus = corpora.MmCorpus('vsm\\corpus.mm')
+print corpus
+tfidf = models.TfidfModel.load('tfidf_model.tfidf')
+print tfidf
 
 # sparql-lists
 label = []
@@ -221,109 +227,67 @@ def wordNetWordMatch(string):
         newString += word
     wordMatch(newString)
 
-#======================================================#
-# Use Gensim to calculate similarity                   #
-#======================================================#
-def descMatch(string,int):
-    "Returns the x most similar descriptions"
-    temp=[]
-    global foundDesc,fd,desc
-    fd = open('log\descMatch.csv','a')
-    fd.write('"' + string)
-    foundDesc=[]
-    cleanDesc=[]
-    stopset = set(stopwords.words('english'))
+# Gensim
 
-    BMCdict=corpora.Dictionary.load('db\\largedict.dict')
-    print BMCdict
-    mm = corpora.MmCorpus('db\\bmc.mm')
-    print mm
-
-    # Initialize model
-    tfidf = models.TfidfModel(corpus=mm,dictionary=BMCdict)    
-    tokenString = WordPunctTokenizer().tokenize(string)
+def cleanDoc(doc):
+    # Tokenize + remove stopwords of a string
+    stopset = set(stopwords.words('english'))    
+    tokenString = WordPunctTokenizer().tokenize(doc)
     cleanString = [token.lower() for token in tokenString if token.lower() not in stopset and len(token) > 2]
-    bowString = BMCdict.doc2bow(cleanString)
-    print 'bowString:',bowString,'\n'
+    return cleanString
+
+def compareDoc(doc1,doc2):
+    doc1 = cleanDoc(doc1)
+    doc2 = cleanDoc(doc2)
+    bowdoc1 = dictionary.doc2bow(doc1)
+    bowdoc2 = dictionary.doc2bow(doc2)
+    tfidf1 = tfidf[bowdoc1]
+    print len(tfidf1)
+    tfidf2 = tfidf[bowdoc2]
+    print len(tfidf2)
+    index = similarities.MatrixSimilarity([tfidf1],num_features=len(dictionary))
+    sims = index[tfidf2]
+    print sims
+
+def descMatch(doc):
+    global dictionary,desc,labelDict
+    print doc
+    fd = open('log\descMatch.csv','a')
+    fd.write('"' + str(doc))
+    fd.close()
+#1 clean string, convert to bow, convert to tfidf
+    cleanString = cleanDoc(doc)
+    bowString = dictionary.doc2bow(cleanString)
     tfidfString = tfidf[bowString]
-    print 'tfidfString:',tfidfString,'\n'
 
-    ### Compare!
-    corpus_tfidf = tfidf[mm]
-    print corpus_tfidf
-    print "Created corpus_tfidf"
-    index = similarities.Similarity('db\\index\\i_',corpus_tfidf,482332,int)
-    index.save('db\\bmc.index')
-    print "Saved index to db/bmc.index"
-    similarity = index[tfidfString]
-    print similarity
+#2 clean description, convert to bow, convert to tfidf
+    cleanDesc = [cleanDoc(d[0]) for d in desc]
+    bowDesc = [dictionary.doc2bow(doc) for doc in cleanDesc]
+    tcorpus = tfidf[bowDesc]
 
-'''
-    sims = sorted(enumerate(sims), key=lambda item: -item[1])
-    sims = sims[:int]
+#3 Load index from the descriptions
+    # index = similarities.Similarity('i_',tcorpus,num_features=len(dictionary),num_best=10)
+    # index.save('desc.index')
+    index = similarities.Similarity.load('desc.index')
+    sims = index[tfidfString]
+    print "\n"
     for i in range(len(sims)):
         ID = sims[i][0]
-        sim = sims[i][1]
+        sim = sims[i][1]*100
         
         descString = desc[ID][0]
         URI = desc[ID][1]
         label = labelDict[URI]
         
-        print "Label:",label,"\n","Similarity:",sim,"\n","Description:",descString + "\n"        
+        print "Label:",label,"\n","Similarity:",sim,"\n","Description:",descString + "\n"
+        fd = open('log\descMatch.csv','a')
         fd.write('";"' + str(sim) + '";"' + str(label) + '";"' + str(descString))
+        fd.close()
+    fd = open('log\descMatch.csv','a')    
     fd.write('"\n')
     fd.close()
-'''
 
-def createCorpus():
-    global corpuslist,desc,BMCdict
-    
-    stopset = set(stopwords.words('english'))
-    cleanList=[]
-
-    # Create a cleanlist (tokenized, stopwords removed) out of all the articles
-    for i in range(len(corpuslist)):
-        corpusWords = WordPunctTokenizer().tokenize(corpuslist[i])
-        cleanWords = [token.lower() for token in corpusWords if token.lower() not in stopset and len(token) > 2]
-        cleanList.append(cleanWords)
-    print cleanList[324]
-
-    ### Corpus stuff: create a TF-IDF metric using corpuslist
-    class MyCorpus(object):
-        def __iter__(self):
-            for i in range(len(cleanList)):
-                yield dictionary.doc2bow(cleanList[i])
-    
-    # 2. Convert text to vectors, using bag-of-words model
-    # Tokenize + clean each corpuslist entry
-    dictionary = Dictionary.load('db\\BMC.dict')
-    print dictionary
-
-    corpus = MyCorpus()
-    print corpus
-    tfidf = models.TfidfModel(corpus,id2word=dictionary)
-    print tfidf
-
-    corpus_tfidf = tfidf[corpus]
-    index = similarities.Similarity('db\\index\\i_',corpus_tfidf,162291,num_best=int)
-    index.save('db\\bmc.index')
-
-def trainCorpus():
-    # Create a list 'corpuslist' of articles
-    global corpuslist
-    corpuslist=[]
-    directory = "e:\\articles\\articles\\"
-    files = os.listdir("e:\\articles\\articles\\")
-    for i in range(len(files)):
-        currentFile = directory + str(files[i])
-        doc = etree.parse(currentFile)
-        for x in doc.getiterator('bdy'):
-            for y in x[0].getiterator('p'):
-                text = y.text
-                if text is not None and '(To access the full article, please see PDF)' not in text and len(text)>44:
-                    corpuslist.append(text)
-    print len(corpuslist)
-    createCorpus()
+        
 #======================================================#
 # Generate syns from string, gensim similarity         #
 #======================================================#    
@@ -358,11 +322,11 @@ def listWordNetMatch(list):
         wordNetWordMatch(string)
         print ""
 
-def listDescMatch(lijst,int):
+def listDescMatch(lijst):
     for i in range(len(lijst)):
         string = lijst[i]
         print str(i+1),"of",str(len(lijst))
-        descMatch(string,int)
+        descMatch(string)
         print ""
 
 def listWordNetDescMatch(list,int):
