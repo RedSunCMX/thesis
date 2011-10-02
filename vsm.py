@@ -49,9 +49,26 @@ def compareDoc(doc1,doc2):
     print len(tfidf2)
     index = similarities.MatrixSimilarity([tfidf1],num_features=len(dictionary))
     sims = index[tfidf2]
-    print list(enumerate(sims))
+    print sims
 
-dictionary=corpora.Dictionary(open('corpus.txt'))
+def descMatch(doc):
+    import semsim
+    import cyttron
+    cyttron.getDescs()
+    for i in range(len(cyttron.desc)):
+        print semsim.dicto[cyttron.desc[i][1]]
+        compareDoc(cyttron.wikiGet(doc),cyttron.desc[i][0])
+'''
+    global desc
+    cleanString = cleanDoc(doc)
+    bowString = dictionary.doc2bow(doc)
+    tfidfString = tfidf[bowString]
+    desc_bow = dictionary.doc2bow(desc.lower().split() for d in desc)
+    desc_vec = tfidf[desc_bow]
+    index = similarities.Similarity(tfidf[desc_vec])
+'''
+#dictionary=corpora.Dictionary(line.lower().split() for line in open('corpus.txt'))
+dictionary = corpora.Dictionary.load('dictio.dict')
 print dictionary
 corpus = MyCorpus()
 tfidf = models.TfidfModel(corpus)
