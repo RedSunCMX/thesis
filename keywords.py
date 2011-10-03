@@ -1,5 +1,5 @@
 import nltk
-from nltk import FreqDist, word_tokenize, WordPunctTokenizer
+from nltk import FreqDist, WordPunctTokenizer
 from nltk.corpus import stopwords
 from nltk.collocations import BigramCollocationFinder,TrigramCollocationFinder
 from nltk.metrics import BigramAssocMeasures,TrigramAssocMeasures
@@ -18,31 +18,31 @@ def extractKeywords(list,nr):
     csv.write('"keywords";"keynouns";"bigrams";"trigrams"\n')
     csv.close()
     for i in range(len(list)):
-        currentEntry = str(list[i])
+        currentEntry = list[i]
         freqWords(currentEntry,nr)
         freqNouns(currentEntry,nr)
-        wordCollo(currentEntry,nr,clean=True)
+        nGrams(currentEntry,nr,clean=True)
     csv.close()
-        
+
 def descKeywords(list):
     for i in range(len(list)):
         currentEntry = str(list[i][0])
-        print currentEntry
+        # print currentEntry
         freqWords(currentEntry,25)
-        wordCollo(currentEntry)
+        nGrams(currentEntry)
         print " "
 
 # String-functions
 def freqNouns(string,int):
     list=[]
-    words = nltk.word_tokenize(string)
+    words = WordPunctTokenizer().tokenize(string)
     pos = nltk.pos_tag(words)
     for i in range(len(pos)):
         if len(pos[i][0]) > 1:
             if pos[i][1] == 'NN' or pos[i][1] == 'NNP':
                 list.append(pos[i][0])
     newString = ' '.join(list).lower()
-    print newString
+    # print newString
     freqWords(newString,int)
 
 def freqWords(string,int):
@@ -58,7 +58,7 @@ def freqWords(string,int):
         for j in range(1,int):
             word = fdist[j-1:j]
             if len(word) > 0:
-                wordList.append(str(word[0]))
+                wordList.append(word[0])
     csv = open('db\cyttron-keywords.csv','a')
     if len(wordList) > 1:
         csv.write('"' + ', '.join(wordList[:-1]) + ', ' + wordList[-1] + '";')
@@ -67,12 +67,11 @@ def freqWords(string,int):
     csv.close()
     return wordList
 
-
-def wordCollo(string,int,clean=True):
+def nGrams(string,int,clean=True):
     global wordList
     biList=[]
     triList=[]
-    print clean
+    # print clean
     words = WordPunctTokenizer().tokenize(string)
     stopset = set(stopwords.words('english'))
     if clean == True:

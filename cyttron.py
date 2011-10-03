@@ -15,13 +15,18 @@ import os
 from lxml import etree
 import logging
 logging.root.setLevel(logging.INFO)
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+import cProfile
+index = similarities.Similarity.load('vsm\\desc.index')
 
+'''
 dictionary = corpora.Dictionary.load('stemcorpus.dict')
 print dictionary
 corpus = corpora.MmCorpus('stemcorpus.mm')
 print corpus
 tfidf = models.TfidfModel.load('stemcorpus.tfidf')
 print tfidf
+'''
 
 # sparql-lists
 label = []
@@ -31,6 +36,9 @@ foundLabel= []
 foundDesc= []
 URI= []
 corpuslist=[]
+
+cyttronKeywords = []
+wikiKeywords = []
 
 cyttronlist = []
 csvList = []
@@ -163,12 +171,13 @@ def getDescs():
 #======================================================#
 def wordMatch(string):
     # wordMatch with regexp word boundary
-    global label,foundLabel,f
+    global label,foundLabel,f,labelDict
     foundLabel=[]
     foundTotal=[]
     foundUnique=[]
+    string = string.encode('utf-8')
     f = open('log\wordMatch.csv','a')
-    f.write('"' + str(string) + '";"')
+    f.write('"' + string + '";"')
     f.close()
     for i in range(len(label)):
         currentLabel = str(label[i][0]).lower()
@@ -177,6 +186,7 @@ def wordMatch(string):
         c = re.findall(r"\b"+re.escape(currentLabel)+r"\b",string)
         countLabel = len(c)
         if countLabel > 0:
+            currentLabel = labelDict[currentURI]
             foundLabel.append([countLabel,currentURI,currentLabel])
             foundUnique.append(currentLabel)
             for i in range(countLabel):
@@ -202,11 +212,11 @@ def wordMatch(string):
 
     foundURI=[]
     for i in range(len(foundLabel)):
-        print foundLabel[i][2],foundLabel[i][0]
+        # print foundLabel[i][2],foundLabel[i][0]
         foundURI.append(foundLabel[i][1])
-    print "Found",len(foundUnique),"unique labels"
-    print "and",len(foundTotal),"total labels"
-    print foundURI
+    # print "Found",len(foundUnique),"unique labels"
+    # print "and",len(foundTotal),"total labels"
+    # print foundURI
     
 #======================================================#
 # Scan a string, generate syns for each word           #
@@ -214,7 +224,7 @@ def wordMatch(string):
 #======================================================#
 def wordNetWordMatch(string):
     newString = ""
-    string = nltk.word_tokenize(string)
+    string = WordPunctTokenizer().tokenize(string)
     for i in range(len(string)):
         currentWord = string[i].lower()
         synonyms = []
@@ -254,8 +264,8 @@ def cleanDoc(doc):
     stemmer = nltk.PorterStemmer()
     tokens = WordPunctTokenizer().tokenize(doc)
     clean = [token.lower() for token in tokens if token.lower() not in stopset and len(token) > 2]
-    final = [stemmer.stem(word) for word in clean]
-    return final
+    # final = [stemmer.stem(word) for word in clean]
+    return clean
 
 def compareDoc(doc1,doc2):
     doc1 = cleanDoc(doc1)
@@ -269,27 +279,25 @@ def compareDoc(doc1,doc2):
     print str(round(sim*100,2))+'% similar'
 
 def descMatch(doc):
-    global dictionary,desc,labelDict
+    global dictionary,desc,labelDict,index
+    # disable for cy:
     doc = doc.encode('utf-8')
     fd = open('log\descMatch.csv','a')
     fd.write('"' + doc)
     fd.close()
-#1 clean string, convert to bow, convert to tfidf
+    #1 clean string, convert to bow, convert to tfidf
     cleanString = cleanDoc(doc)
     bowString = dictionary.doc2bow(cleanString)
     tfidfString = tfidf[bowString]
 
-#2 clean description, convert to bow, convert to tfidf
+    #2 clean description, convert to bow, convert to tfidf
     cleanDesc = [cleanDoc(d[0]) for d in desc]
     bowDesc = [dictionary.doc2bow(doc) for doc in cleanDesc]
     tcorpus = tfidf[bowDesc]
 
-#3 Load index from the descriptions
-    # index = similarities.Similarity('i_',tcorpus,num_features=len(dictionary),num_best=10)
-    # index.save('desc.index')
-    index = similarities.Similarity.load('desc.index')
+    #3 Load index from the descriptions
     sims = index[tfidfString]
-    print "\n"
+#    print "\n"
     for i in range(len(sims)):
         ID = sims[i][0]
         sim = str(sims[i][1]*100)
@@ -299,10 +307,10 @@ def descMatch(doc):
         URI = desc[ID][1]
         label = labelDict[URI]
 
-        label = label.encode('utf-8')
-        descString = descString.encode('utf-8')
+        # label = label.encode('utf-8')
+        # descString = descString.encode('utf-8')
         
-        print "Label:",label,"\n","Similarity:",sim,"\n","Description:",descString + "\n"
+#        print "Label:",label,"\n","Similarity:",sim,"\n","Description:",descString + "\n"
         fd = open('log\descMatch.csv','a')
         fd.write('";"' + sim + '";"' + label + '";"' + descString)
         fd.close()
@@ -314,9 +322,9 @@ def descMatch(doc):
 #======================================================#
 # Generate syns from string, gensim similarity         #
 #======================================================#    
-def descWordNetMatch(string,int):
+def descWordNetMatch(string):
     newString = ""
-    string = nltk.word_tokenize(string)
+    string = WordPunctTokenizer().tokenize(string)
     for i in range(len(string)):
         currentWord = string[i].lower()
         synonyms = []
@@ -326,7 +334,7 @@ def descWordNetMatch(string,int):
         synonyms = set(synonyms)
         word = ', '.join(synonyms)
         newString += word
-    descMatch(newString,int)
+    descMatch(newString)
     
 #======================================================#
 # CyttronDB-specific functions to process lists        #
@@ -334,29 +342,28 @@ def descWordNetMatch(string,int):
 def listWordMatch(list):
     for i in range(len(list)):
         string = list[i]
-        print str(i+1),"of",str(len(list))
+#        print str(i+1),"of",str(len(list))
         wordMatch(string)
-        print ""
+#        print ""
 
 def listWordNetMatch(list):
     for i in range(len(list)):
         string = list[i]
-        print str(i+1),"of",str(len(list))
+#        print str(i+1),"of",str(len(list))
         wordNetWordMatch(string)
-        print ""
+#        print ""
 
 def listDescMatch(lijst):
     for i in range(len(lijst)):
         string = lijst[i]
-        print str(i+1),"of",str(len(lijst))
         descMatch(string)
         print ""
 
-def listWordNetDescMatch(list,int):
+def listWordNetDescMatch(list):
     for i in range(len(list)):
         string = list[i]
         print str(i+1),"of",str(len(list))
-        descWordNetMatch(string,int)
+        descWordNetMatch(string)
         print ""
 
 #======================================================#
@@ -398,16 +405,15 @@ def switchEndpoint():
 def cyttron(listname):
     f = csv.reader(open('db\cyttron.csv', 'rb'), delimiter=';')
     for line in f:
-        listname.append(str(line[0]))
+        listname.append(line[0])
     print len(listname)
 
-def csv2list(fileName,columnNr):
-    global csvList
-    csvList=[]
-    f = csv.reader(open(fileName,'rb'), delimiter=';')
+def keywordlist(listname):
+    f = csv.reader(open('db\cyttron-keywords.csv', 'rb'), delimiter=';')
     for line in f:
-        csvList.append(str(line[columnNr]))
-    print csvList
+        listname.append(str(line).decode('utf-8'))
+    listname.remove(listname[0])
+    return listname
 
 def cleanCSV(csvread):
     global pub,group,priv
@@ -428,8 +434,199 @@ def cleanCSV(csvread):
     print "Group entries:",total2,"total",len(group),"unique"
     print "Priv entries:",total3,"total",len(priv),"unique"
 
+
+def stemTxt(sourceList):
+    stemmer = nltk.PorterStemmer()
+    templist = []
+    for i in range(len(sourceList)):
+        templist = []
+        tokens = WordPunctTokenizer().tokenize(sourceList[i])
+        for j in range(len(tokens)):
+            stem = stemmer.stem(tokens[j])
+            templist.append(stem)
+        sourceList[i] = ' '.join(templist)
+    print "Stemmed",len(sourceList),"texts"
+
+def stemOnto(ontolist):
+    stemmer = nltk.PorterStemmer()
+    templist = []
+    for i in range(len(ontolist)):
+        templist=[]
+        tokens = WordPunctTokenizer().tokenize(ontolist[i][0])
+        for j in range(len(tokens)):
+            stem = stemmer.stem(tokens[j])
+            templist.append(stem)
+        ontolist[i][0] = ' '.join(templist)
+    print "Stemmed",len(ontolist),"things"
+
+def stemAll():
+    global label,desc,cyttronlist,wikilist,wikiKeywords,cyttronKeywords
+    print "1/6 Stemming cyttronlist...",
+    stemTxt(cyttronlist)
+    print "2/6 Stemming wikilist...",
+    stemTxt(wikilist)
+    print "3/6 Stemming cyttronKeywords...",
+    stemTxt(cyttronKeywords)    
+    print "4/6 Stemming wikiKeywords...",
+    stemTxt(wikiKeywords)
+    print "5/6 Stemming label...",
+    stemOnto(label)
+    print "6/6 Stemming desc...",
+    stemOnto(desc)
+
+def descMatchAll():
+    import keywords
+    global cyttronKeywords,wikiKeywords,dictionary,corpus,tfidf
+    cyttronKeywords = []
+    wikiKeywords = []    
+    '''
+    print "Loading default training corpus..."
+    dictionary = corpora.Dictionary.load('vsm\\normal\\corpus.dict')
+    print dictionary
+    corpus = corpora.MmCorpus('vsm\\normal\\corpus.mm')
+    print corpus
+    tfidf = models.TfidfModel.load('vsm\\normal\\corpus.tfidf')
+    print tfidf    
+    '''
+    keywords.extractKeywords(cyttronlist,20)
+    keywordlist(cyttronKeywords)
+    '''
+    cProfile.run('listDescMatch(cyttronlist)')
+    os.rename('log\descMatch.csv','log\cy-descMatch.csv')
+    print "Finished cy-descMatch.csv"
+
+    cProfile.run('listDescMatch(cyttronKeywords)')
+    os.rename('log\descMatch.csv','log\cy-descMatch-keyWords.csv')
+    print "Finished cy-descMatch-keyWords.csv"
+
+    cProfile.run('listWordNetDescMatch(cyttronKeywords)')
+    os.rename('log\descMatch.csv','log\cy-descMatch-keyWords-WordNet.csv')
+    print "Finished cy-descMatch-keyWords-WordNet.csv"
+    '''
+    keywords.extractKeywords(wikilist,20)
+    keywordlist(wikiKeywords)
+    '''
+    cProfile.run('listDescMatch(wikilist)')
+    os.rename('log\descMatch.csv','log\wiki-descMatch.csv')
+    print "Finished wiki-descMatch.csv"
+
+    cProfile.run('listDescMatch(wikiKeywords)')
+    os.rename('log\descMatch.csv','log\wiki-descMatch-keyWords.csv')
+    print "Finished wiki-descMatch-keyWords.csv"
+
+    cProfile.run('listWordNetDescMatch(cyttronKeywords)')
+    os.rename('log\descMatch.csv','log\wiki-descMatch-keyWords-WordNet.csv')
+    print "Finished wiki-descMatch-keyWords-WordNet.csv"    
+    '''
+    print "\n**********************"
+    stemAll()
+    print "Loading stemmed training corpus..."
+    dictionary = corpora.Dictionary.load('vsm\\stem\\stemcorpus.dict')
+    print dictionary
+    corpus = corpora.MmCorpus('vsm\\stem\\stemcorpus.mm')
+    print corpus
+    tfidf = models.TfidfModel.load('vsm\\stem\\stemcorpus.tfidf')
+    print tfidf      
+    print "**********************\n"
+    '''
+    cProfile.run('listDescMatch(cyttronlist)')
+    os.rename('log\descMatch.csv','log\cy-stem-descMatch.csv')
+    print "Finished cy-stem-descMatch.csv"
+
+    cProfile.run('listDescMatch(cyttronKeywords)')
+    os.rename('log\descMatch.csv','log\cy-stem-descMatch-keyWords.csv')
+    print "Finished cy-stem-descMatch-keyWords.csv"
+
+    cProfile.run('listWordNetDescMatch(cyttronKeywords)')
+    os.rename('log\descMatch.csv','log\cy-stem-descMatch-keyWords-WordNet.csv')
+    print "Finished cy-stem-descMatch-keyWords-WordNet.csv"
+    '''
+    cProfile.run('listDescMatch(wikilist)')
+    os.rename('log\descMatch.csv','log\wiki-stem-descMatch.csv')
+    print "Finished wiki-stem-descMatch.csv"
+
+    cProfile.run('listDescMatch(wikiKeywords)')
+    os.rename('log\descMatch.csv','log\wiki-stem-descMatch-keyWords.csv')
+    print "Finished wiki-stem-descMatch-keyWords.csv"
+
+    cProfile.run('listWordNetDescMatch(cyttronKeywords)')
+    os.rename('log\descMatch.csv','log\wiki-stem-descMatch-keyWords-WordNet.csv')
+    print "Finished wiki-stem-descMatch-keyWords-WordNet.csv"   
+
+def wordMatchAll():
+    import keywords
+    global cyttronKeywords,wikiKeywords
+    cyttronKeywords = []
+    wikiKeywords = []
+    
+    # CYTTRON noStem
+
+    keywords.extractKeywords(cyttronlist,20)
+    keywordlist(cyttronKeywords)
+    
+    cProfile.run('listWordMatch(cyttronlist)')
+    os.rename('log\wordMatch.csv','log\cy-wordMatch.csv')
+    print "Finished cy-wordMatch.csv"
+
+    cProfile.run('listWordMatch(cyttronKeywords)')
+    os.rename('log\wordMatch.csv','log\cy-wordMatch-keyWords.csv')
+    print "Finished cy-wordMatch-keyWords.csv"
+
+    cProfile.run('listWordNetMatch(cyttronKeywords)')
+    os.rename('log\wordMatch.csv','log\cy-wordMatch-keyWords-WordNet.csv')
+    print "Finished cy-wordMatch-keyWords-WordNet.csv\nOn to Wiki!"
+        
+    # WIKI noStem
+    
+    keywords.extractKeywords(wikilist,20)
+    keywordlist(wikiKeywords)
+    
+    cProfile.run('listWordMatch(wikilist)')
+    os.rename('log\wordMatch.csv','log\wiki-wordMatch.csv')
+    print "Finished wiki-wordMatch.csv"    
+    
+    cProfile.run('listWordMatch(wikiKeywords)')
+    os.rename('log\wordMatch.csv','log\wiki-wordMatch-keyWords.csv')
+    print "Finished wiki-wordMatch-keyWords.csv"
+
+    cProfile.run('listWordNetMatch(wikiKeywords)')
+    os.rename('log\wordMatch.csv','log\wiki-wordMatch-keyWords-WordNet.csv')
+    print "Finished wiki-wordMatch-keyWords-WordNet.csv"    
+    
+    print "\n**********************"
+    stemAll()
+    print "**********************\n"
+    
+    # CYTTRON stem
+
+    cProfile.run('listWordMatch(cyttronlist)')
+    os.rename('log\wordMatch.csv','log\cy-stem-wordMatch.csv')
+    print "Finished cy-stem-wordMatch.csv"    
+
+    cProfile.run('listWordMatch(cyttronKeywords)')
+    os.rename('log\wordMatch.csv','log\cy-stem-wordMatch-keyWords.csv')
+    print "Finished cy-stem-wordMatch-keyWords.csv"
+
+    cProfile.run('listWordNetMatch(cyttronKeywords)')
+    os.rename('log\wordMatch.csv','log\cy-stem-wordMatch-keyWords-WordNet.csv')
+    print "Finished cy-stem-wordMatch-keyWords-WordNet.csv"
+    
+    # WIKI stem
+
+    cProfile.run('listWordMatch(wikilist)')
+    os.rename('log\wordMatch.csv','log\wiki-stem-wordMatch.csv')
+    print "Finished wiki-stem-wordMatch.csv"    
+    
+    cProfile.run('listWordMatch(wikiKeywords)')
+    os.rename('log\wordMatch.csv','log\wiki-stem-wordMatch-keyWords.csv')
+    print "Finished wiki-stem-wordMatch-keyWords.csv"
+
+    cProfile.run('listWordNetMatch(wikiKeywords)')
+    os.rename('log\wordMatch.csv','log\wiki-stem-wordMatch-keyWords-WordNet.csv')
+    print "Finished wiki-stem-wordMatch-keyWords-WordNet.csv"
+
 def main():
-    global cyttronlist,wikilist
+    global cyttronlist,wikilist,cyttronKeywords,wikiKeywords
     cyttronlist = []
     cyttron(cyttronlist)
     getLabels()
