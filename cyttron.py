@@ -16,11 +16,11 @@ from lxml import etree
 import logging
 logging.root.setLevel(logging.INFO)
 
-dictionary = corpora.Dictionary.load('vsm\\dictio.dict')
+dictionary = corpora.Dictionary.load('stemcorpus.dict')
 print dictionary
-corpus = corpora.MmCorpus('vsm\\corpus.mm')
+corpus = corpora.MmCorpus('stemcorpus.mm')
 print corpus
-tfidf = models.TfidfModel.load('tfidf_model.tfidf')
+tfidf = models.TfidfModel.load('stemcorpus.tfidf')
 print tfidf
 
 # sparql-lists
@@ -230,7 +230,7 @@ def wordNetWordMatch(string):
 # Gensim
 
 def buildCorpus():
-    corpustxt = open('stemcorpus.txt','w')
+    corpustxt = open('corpus.txt','w')
     corpustxt.close()
     directory = "E:\\articles\\articles\\"
     files = os.listdir("E:\\articles\\articles\\")
@@ -244,7 +244,7 @@ def buildCorpus():
         if len(temp) > 0:
             print files[i]
             clean = ' '.join(cleanDoc(temp))
-            corpustxt = open('stemcorpus.txt','a')
+            corpustxt = open('corpus.txt','a')
             corpustxt.write('"'+clean.encode('utf-8')+'"\n')
             corpustxt.close()
     print 'Finished'
