@@ -17,16 +17,15 @@ import logging
 logging.root.setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 import cProfile
-index = similarities.Similarity.load('vsm\\desc.index')
 
-'''
-dictionary = corpora.Dictionary.load('stemcorpus.dict')
+dictionary = corpora.Dictionary.load('vsm\\normal\\normal.dict')
 print dictionary
-corpus = corpora.MmCorpus('stemcorpus.mm')
+corpus = corpora.MmCorpus('vsm\\normal\\corpus.mm')
 print corpus
-tfidf = models.TfidfModel.load('stemcorpus.tfidf')
+tfidf = models.TfidfModel.load('vsm\\normal\\normal.tfidf')
 print tfidf
-'''
+index = similarities.Similarity.load('vsm\\normal\\normal.index')
+print index
 
 # sparql-lists
 label = []
@@ -61,6 +60,10 @@ wikiTxt=""
 f = open('log\wordMatch.csv','w')
 f.write('"string";"# total labels";"total labels";"# unique labels";"unique labels"'+ "\n")
 f.close()
+
+f2 = open('log\wordMatch.html','w')
+f2.write('<table border=1>')
+f2.close()
 
 fd = open('log\descMatch.csv','w')
 fd.close()
@@ -171,14 +174,19 @@ def getDescs():
 #======================================================#
 def wordMatch(string):
     # wordMatch with regexp word boundary
-    global label,foundLabel,f,labelDict
+    global label,foundLabel,f,f2,labelDict
     foundLabel=[]
     foundTotal=[]
     foundUnique=[]
+    sortFreq=[]
+    # disable for cy:
     string = string.encode('utf-8')
     f = open('log\wordMatch.csv','a')
     f.write('"' + string + '";"')
     f.close()
+    f2 = open('log\wordMatch.html','a')    
+    f2.write('<td>')
+    f2.close()
     for i in range(len(label)):
         currentLabel = str(label[i][0]).lower()
         currentURI = str(label[i][1])
@@ -187,11 +195,18 @@ def wordMatch(string):
         countLabel = len(c)
         if countLabel > 0:
             currentLabel = labelDict[currentURI]
+            sortFreq.append([currentLabel,countLabel])
             foundLabel.append([countLabel,currentURI,currentLabel])
             foundUnique.append(currentLabel)
             for i in range(countLabel):
                 foundTotal.append(currentLabel)
+            sortFreq = sorted(sortFreq, key=lambda sortFreq: sortFreq[1],reverse=True)
+    f2 = open('log\wordMatch.html','a')
+    for i in range(len(sortFreq)):
+        f2.write(sortFreq[i][0] + "[" + str(sortFreq[i][1]) + "] ")
     foundLabel.sort(reverse=True)
+    f2.write('</td>')
+    f2.close()
 
     f = open('log\wordMatch.csv','a')
     if len(foundTotal) > 0:
@@ -260,6 +275,7 @@ def buildCorpus():
     print 'Finished'
 
 def cleanDoc(doc):
+    # String goes in, list of words comes out
     stopset = set(stopwords.words('english'))
     stemmer = nltk.PorterStemmer()
     tokens = WordPunctTokenizer().tokenize(doc)
@@ -270,6 +286,8 @@ def cleanDoc(doc):
 def compareDoc(doc1,doc2):
     doc1 = cleanDoc(doc1)
     doc2 = cleanDoc(doc2)
+    print doc1
+    print doc2
     bowdoc1 = dictionary.doc2bow(doc1)
     bowdoc2 = dictionary.doc2bow(doc2)
     tfidf1 = tfidf[bowdoc1]
@@ -280,12 +298,13 @@ def compareDoc(doc1,doc2):
 
 def descMatch(doc):
     global dictionary,desc,labelDict,index
+    print "doc:",doc
     # disable for cy:
     doc = doc.encode('utf-8')
-    fd = open('log\descMatch.csv','a')
-    fd.write('"' + doc)
+    fd = open('log\descMatch.csv','w')
     fd.close()
-    #1 clean string, convert to bow, convert to tfidf
+    
+    # 1 clean string, convert to bow, convert to tfidf
     cleanString = cleanDoc(doc)
     bowString = dictionary.doc2bow(cleanString)
     tfidfString = tfidf[bowString]
@@ -295,13 +314,16 @@ def descMatch(doc):
     bowDesc = [dictionary.doc2bow(doc) for doc in cleanDesc]
     tcorpus = tfidf[bowDesc]
 
-    #3 Load index from the descriptions
+    index = similarities.Similarity('d_',tcorpus,num_features=len(dictionary))
+
+    # 3 Load index of the descriptions
     sims = index[tfidfString]
-#    print "\n"
+    # print "\n"
     for i in range(len(sims)):
+        print sims[i]
         ID = sims[i][0]
         sim = str(sims[i][1]*100)
-        sim = sim.encode('utf-8')
+        # sim = sim.encode('utf-8')
         
         descString = desc[ID][0]
         URI = desc[ID][1]
@@ -310,15 +332,14 @@ def descMatch(doc):
         # label = label.encode('utf-8')
         # descString = descString.encode('utf-8')
         
-#        print "Label:",label,"\n","Similarity:",sim,"\n","Description:",descString + "\n"
+        # print "Label:",label,"\n","Similarity:",sim,"\n","Description:",descString + "\n"
         fd = open('log\descMatch.csv','a')
         fd.write('";"' + sim + '";"' + label + '";"' + descString)
         fd.close()
-    fd = open('log\descMatch.csv','a')    
+    fd = open('log\descMatch.csv','a')
     fd.write('"\n')
     fd.close()
 
-        
 #======================================================#
 # Generate syns from string, gensim similarity         #
 #======================================================#    
@@ -334,24 +355,28 @@ def descWordNetMatch(string):
         synonyms = set(synonyms)
         word = ', '.join(synonyms)
         newString += word
+    print "done"
     descMatch(newString)
     
 #======================================================#
 # CyttronDB-specific functions to process lists        #
 #======================================================#        
 def listWordMatch(list):
+    global f2
+    f2 = open('log\wordMatch.html','a')    
+    f2.write('<tr>')
+    f2.close()
     for i in range(len(list)):
         string = list[i]
-#        print str(i+1),"of",str(len(list))
         wordMatch(string)
-#        print ""
+    f2 = open('log\wordMatch.html','a')            
+    f2.write('</tr>\n')
+    f2.close()
 
 def listWordNetMatch(list):
     for i in range(len(list)):
         string = list[i]
-#        print str(i+1),"of",str(len(list))
         wordNetWordMatch(string)
-#        print ""
 
 def listDescMatch(lijst):
     for i in range(len(lijst)):
@@ -479,18 +504,11 @@ def descMatchAll():
     global cyttronKeywords,wikiKeywords,dictionary,corpus,tfidf
     cyttronKeywords = []
     wikiKeywords = []    
-    '''
-    print "Loading default training corpus..."
-    dictionary = corpora.Dictionary.load('vsm\\normal\\corpus.dict')
-    print dictionary
-    corpus = corpora.MmCorpus('vsm\\normal\\corpus.mm')
-    print corpus
-    tfidf = models.TfidfModel.load('vsm\\normal\\corpus.tfidf')
-    print tfidf    
+    
     '''
     keywords.extractKeywords(cyttronlist,20)
     keywordlist(cyttronKeywords)
-    '''
+    
     cProfile.run('listDescMatch(cyttronlist)')
     os.rename('log\descMatch.csv','log\cy-descMatch.csv')
     print "Finished cy-descMatch.csv"
@@ -505,7 +523,7 @@ def descMatchAll():
     '''
     keywords.extractKeywords(wikilist,20)
     keywordlist(wikiKeywords)
-    '''
+    
     cProfile.run('listDescMatch(wikilist)')
     os.rename('log\descMatch.csv','log\wiki-descMatch.csv')
     print "Finished wiki-descMatch.csv"
@@ -528,7 +546,8 @@ def descMatchAll():
     tfidf = models.TfidfModel.load('vsm\\stem\\stemcorpus.tfidf')
     print tfidf      
     print "**********************\n"
-    '''
+    index = similarities.Similarity.load('stem.index')
+    
     cProfile.run('listDescMatch(cyttronlist)')
     os.rename('log\descMatch.csv','log\cy-stem-descMatch.csv')
     print "Finished cy-stem-descMatch.csv"
@@ -540,7 +559,7 @@ def descMatchAll():
     cProfile.run('listWordNetDescMatch(cyttronKeywords)')
     os.rename('log\descMatch.csv','log\cy-stem-descMatch-keyWords-WordNet.csv')
     print "Finished cy-stem-descMatch-keyWords-WordNet.csv"
-    '''
+    
     cProfile.run('listDescMatch(wikilist)')
     os.rename('log\descMatch.csv','log\wiki-stem-descMatch.csv')
     print "Finished wiki-stem-descMatch.csv"
@@ -549,10 +568,10 @@ def descMatchAll():
     os.rename('log\descMatch.csv','log\wiki-stem-descMatch-keyWords.csv')
     print "Finished wiki-stem-descMatch-keyWords.csv"
 
-    cProfile.run('listWordNetDescMatch(cyttronKeywords)')
+    cProfile.run('listWordNetDescMatch(wikiKeywords)')
     os.rename('log\descMatch.csv','log\wiki-stem-descMatch-keyWords-WordNet.csv')
     print "Finished wiki-stem-descMatch-keyWords-WordNet.csv"   
-
+    '''
 def wordMatchAll():
     import keywords
     global cyttronKeywords,wikiKeywords
@@ -560,7 +579,7 @@ def wordMatchAll():
     wikiKeywords = []
     
     # CYTTRON noStem
-
+    '''
     keywords.extractKeywords(cyttronlist,20)
     keywordlist(cyttronKeywords)
     
@@ -575,9 +594,9 @@ def wordMatchAll():
     cProfile.run('listWordNetMatch(cyttronKeywords)')
     os.rename('log\wordMatch.csv','log\cy-wordMatch-keyWords-WordNet.csv')
     print "Finished cy-wordMatch-keyWords-WordNet.csv\nOn to Wiki!"
-        
-    # WIKI noStem
     
+    # WIKI noStem
+    '''
     keywords.extractKeywords(wikilist,20)
     keywordlist(wikiKeywords)
     
@@ -596,12 +615,12 @@ def wordMatchAll():
     print "\n**********************"
     stemAll()
     print "**********************\n"
-    
+    '''
     # CYTTRON stem
 
     cProfile.run('listWordMatch(cyttronlist)')
     os.rename('log\wordMatch.csv','log\cy-stem-wordMatch.csv')
-    print "Finished cy-stem-wordMatch.csv"    
+    print "Finished cy-stem-wordMatch.csv"
 
     cProfile.run('listWordMatch(cyttronKeywords)')
     os.rename('log\wordMatch.csv','log\cy-stem-wordMatch-keyWords.csv')
@@ -610,7 +629,7 @@ def wordMatchAll():
     cProfile.run('listWordNetMatch(cyttronKeywords)')
     os.rename('log\wordMatch.csv','log\cy-stem-wordMatch-keyWords-WordNet.csv')
     print "Finished cy-stem-wordMatch-keyWords-WordNet.csv"
-    
+    '''
     # WIKI stem
 
     cProfile.run('listWordMatch(wikilist)')
@@ -624,6 +643,12 @@ def wordMatchAll():
     cProfile.run('listWordNetMatch(wikiKeywords)')
     os.rename('log\wordMatch.csv','log\wiki-stem-wordMatch-keyWords-WordNet.csv')
     print "Finished wiki-stem-wordMatch-keyWords-WordNet.csv"
+
+def createIndex():
+    global desc, dictionary, tfidf, corpus
+    cleandesc = [cleanDoc(desc[i][0]) for i in range(len(desc))]
+    bowdesc = [dictionary.doc2bow(d) for d in cleandesc]
+    vecdesc = tfidf[bowdesc]
 
 def main():
     global cyttronlist,wikilist,cyttronKeywords,wikiKeywords
