@@ -18,14 +18,13 @@ logging.root.setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 import cProfile
 
+
 dictionary = corpora.Dictionary.load('vsm\\normal\\normal.dict')
 print dictionary
 corpus = corpora.MmCorpus('vsm\\normal\\corpus.mm')
 print corpus
 tfidf = models.TfidfModel.load('vsm\\normal\\normal.tfidf')
 print tfidf
-index = similarities.Similarity.load('vsm\\normal\\normal.index')
-print index
 
 # sparql-lists
 label = []
@@ -35,7 +34,7 @@ foundLabel= []
 foundDesc= []
 URI= []
 corpuslist=[]
-
+simList=[]
 cyttronKeywords = []
 wikiKeywords = []
 
@@ -58,7 +57,7 @@ sparql = SPARQLWrapper(endpoint)
 wikiTxt=""
 
 f = open('log\wordMatch.csv','w')
-f.write('"string";"# total labels";"total labels";"# unique labels";"unique labels"'+ "\n")
+f.write('"string";"labels"'+ "\n")
 f.close()
 
 f2 = open('log\wordMatch.html','w')
@@ -86,13 +85,12 @@ def getLabels():
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
         PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
-        PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
 
         SELECT ?URI ?label
         WHERE {
             ?URI rdfs:label ?label .
             ?URI a owl:Class .
-        }
+            }
     """)
     
     results = sparql.query().convert()
@@ -101,45 +99,10 @@ def getLabels():
 
     print "Filled list: label. With:",str(len(label)),"entries"
 
-def wikiLabels():
-    global label
-    label = []
-    endpoint = "http://dvdgrs-900:8080/openrdf-sesame/repositories/dbp"
-    print endpoint
-    sparql = SPARQLWrapper(endpoint)
-    sparql.addCustomParameter("infer","false")
-    sparql.setReturnFormat(JSON)
-    querystring = 'PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#> select distinct ?label where {?o rdfs:label ?label . filter( langMatches( lang(?label), "en")||(!langMatches(lang(?label),"*")) )}'
-    print querystring
-    sparql.setQuery(querystring)
-
-    results = sparql.query().convert()
-    for x in results["results"]["bindings"]:
-        label.append([x["label"]["value"],x["URI"]["value"]])   
-
 def fillDict():
-    global labelDict,sparql,endpoint
-    print endpoint
-    sparql = SPARQLWrapper(endpoint)
-    sparql.addCustomParameter("infer","false")
-    sparql.setReturnFormat(JSON)
-    sparql.setQuery("""
-        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-        PREFIX owl: <http://www.w3.org/2002/07/owl#>
-        PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
-
-        SELECT ?URI ?label
-        WHERE {
-            ?URI rdfs:label ?label .
-            ?URI a owl:Class .
-        }
-    """)
-    
-    results = sparql.query().convert()
-    for x in results["results"]["bindings"]:
-        labelDict[x["URI"]["value"]] = x["label"]["value"]
-
+    global labelDict,label
+    for i in range(len(label)):
+        labelDict[label[i][1]] = label[i][0]
     print "Filled dict: labelDict. With:",str(len(labelDict)),"entries"
 
 #======================================================#
@@ -150,6 +113,7 @@ def getDescs():
     sparql = SPARQLWrapper(endpoint)
     sparql.addCustomParameter("infer","false")
     sparql.setReturnFormat(JSON)
+    # MPaTH
     sparql.setQuery("""
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
@@ -167,6 +131,27 @@ def getDescs():
     for x in results["results"]["bindings"]:
         desc.append([x["desc"]["value"],x["URI"]["value"]])
 
+    print "Round One. filled list: desc. With:",str(len(desc)),"entries"
+
+    # NCI
+    sparql.setQuery("""
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        PREFIX nci:<http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#>
+
+        SELECT ?URI ?def
+        WHERE {
+            ?URI a owl:Class .
+            ?URI nci:DEFINITION ?def .
+        }
+    """)
+
+    results = sparql.query().convert()
+    for x in results["results"]["bindings"]:
+        ### Strip tags
+        p = re.compile(r'<.*?>')
+        cleanDesc = p.sub('',x["def"]["value"])
+        desc.append((cleanDesc,x["URI"]["value"]))
+
     print "filled lists: desc. With:",str(len(desc)),"entries"
 
 #======================================================#
@@ -180,58 +165,40 @@ def wordMatch(string):
     foundUnique=[]
     sortFreq=[]
     # disable for cy:
-    string = string.encode('utf-8')
+    # string = string.encode('utf-8')
     f = open('log\wordMatch.csv','a')
     f.write('"' + string + '";"')
     f.close()
-    f2 = open('log\wordMatch.html','a')    
-    f2.write('<td>')
-    f2.close()
     for i in range(len(label)):
-        currentLabel = str(label[i][0]).lower()
+        labelString = label[i][0].encode('utf-8')
+        currentLabel = labelString.lower()
         currentURI = str(label[i][1])
         string = string.lower()
         c = re.findall(r"\b"+re.escape(currentLabel)+r"\b",string)
         countLabel = len(c)
         if countLabel > 0:
             currentLabel = labelDict[currentURI]
-            sortFreq.append([currentLabel,countLabel])
-            foundLabel.append([countLabel,currentURI,currentLabel])
-            foundUnique.append(currentLabel)
-            for i in range(countLabel):
-                foundTotal.append(currentLabel)
-            sortFreq = sorted(sortFreq, key=lambda sortFreq: sortFreq[1],reverse=True)
-    f2 = open('log\wordMatch.html','a')
-    for i in range(len(sortFreq)):
-        f2.write(sortFreq[i][0] + "[" + str(sortFreq[i][1]) + "] ")
+            if 'obo/MPATH_' in currentURI:
+                ns = 'mpath'
+            if 'obo/DOID_' in currentURI:
+                ns = 'doid'
+            if 'EVS/Thesaurus' in currentURI:
+                ns = 'nci'
+            if 'http://purl.org/obo/owl/GO' in currentURI:
+                ns='go'
+            if 'obo/EHDA_' in currentURI:
+                ns='ehda'
+            foundLabel.append([countLabel,currentLabel,ns,currentURI])
     foundLabel.sort(reverse=True)
-    f2.write('</td>')
-    f2.close()
+    print foundLabel
 
     f = open('log\wordMatch.csv','a')
-    if len(foundTotal) > 0:
-        if len(foundTotal) > 1:
-            f.write(str(len(foundTotal)) + '";"' + ', '.join(foundTotal[:-1]) + ', ' + foundTotal[-1] + '";"')
-        if len(foundTotal) == 1:
-            f.write('1";"' + (foundTotal[0]) + '";"')        
+    if len(foundLabel) > 0:
+        labels = [found[2] + ':' + found[1] for found in foundLabel]
+        f.write(', '.join(labels) + '"\n')
     else:
-        f.write('0";"";"')
-    if len(foundUnique) > 0:
-        if len(foundUnique) > 1:
-            f.write(str(len(foundUnique)) + '";"' + ', '.join(foundUnique[:-1]) + ', ' + foundUnique[-1] + '"' + "\n")
-        if len(foundUnique) == 1:
-            f.write('1";"' + (foundUnique[0]) + '"' + "\n")        
-    else:
-        f.write('0";""' + "\n")
+        f.write('0"\n')
     f.close()
-
-    foundURI=[]
-    for i in range(len(foundLabel)):
-        # print foundLabel[i][2],foundLabel[i][0]
-        foundURI.append(foundLabel[i][1])
-    # print "Found",len(foundUnique),"unique labels"
-    # print "and",len(foundTotal),"total labels"
-    # print foundURI
     
 #======================================================#
 # Scan a string, generate syns for each word           #
@@ -248,31 +215,29 @@ def wordNetWordMatch(string):
                 synonyms.append(str(lemma.name).replace('_',' ').lower())
         synonyms = set(synonyms)
         word = ', '.join(synonyms)
-        # print currentWord+str(":"),word
         newString += word
     wordMatch(newString)
 
-# Gensim
+def stemWordNetWordMatch(string):
+    newString = ""
+    stemmer = nltk.PorterStemmer()    
+    string = WordPunctTokenizer().tokenize(string)
+    for i in range(len(string)):
+        currentWord = string[i].lower()
+        synonyms = []
+        for syn in wordnet.synsets(currentWord):
+            for lemma in syn.lemmas:
+                lemma.name = stemmer.stem(lemma.name)
+                synonyms.append(str(lemma.name).replace('_',' ').lower())
+        synonyms = set(synonyms)
+        word = ', '.join(synonyms)
+        newString += word
+    wordMatch(newString)
 
-def buildCorpus():
-    corpustxt = open('corpus.txt','w')
-    corpustxt.close()
-    directory = "E:\\articles\\articles\\"
-    files = os.listdir("E:\\articles\\articles\\")
-    for i in range(len(files)):
-        currentFile = directory + str(files[i])
-        doc = etree.parse(currentFile)
-        r = doc.xpath('/art/bdy')
-        bdy = r[0]
-        results = [ unicode(child.text) for child in bdy.iterdescendants() if child.tag == 'p' and child.text is not None and child.text != '(To access the full article, please see PDF)' and child.text != '"To access the full article, please see PDF"']
-        temp = '. '.join(results)
-        if len(temp) > 0:
-            print files[i]
-            clean = ' '.join(cleanDoc(temp))
-            corpustxt = open('corpus.txt','a')
-            corpustxt.write('"'+clean.encode('utf-8')+'"\n')
-            corpustxt.close()
-    print 'Finished'
+#======================================================#
+# Gensim stuff                                         #
+#                                                      #
+#======================================================#
 
 def cleanDoc(doc):
     # String goes in, list of words comes out
@@ -284,6 +249,7 @@ def cleanDoc(doc):
     return clean
 
 def compareDoc(doc1,doc2):
+    global sim
     doc1 = cleanDoc(doc1)
     doc2 = cleanDoc(doc2)
     print doc1
@@ -294,7 +260,16 @@ def compareDoc(doc1,doc2):
     tfidf2 = tfidf[bowdoc2]
     index = similarities.MatrixSimilarity([tfidf1],num_features=len(dictionary))
     sim = index[tfidf2]
-    print str(round(sim*100,2))+'% similar'
+    return sim
+
+def descMatch2(doc):
+    global desc,dictionary,labelDict,simList,sim
+    simList=[]
+    for i in range(len(desc)):
+        compareDoc(doc,desc[i][0])
+        if sim > 0:
+            simList.append((sim,labelDict[desc[i][1]]))
+    simList=sorted(simList)
 
 def descMatch(doc):
     global dictionary,desc,labelDict,index
@@ -362,21 +337,19 @@ def descWordNetMatch(string):
 # CyttronDB-specific functions to process lists        #
 #======================================================#        
 def listWordMatch(list):
-    global f2
-    f2 = open('log\wordMatch.html','a')    
-    f2.write('<tr>')
-    f2.close()
     for i in range(len(list)):
         string = list[i]
         wordMatch(string)
-    f2 = open('log\wordMatch.html','a')            
-    f2.write('</tr>\n')
-    f2.close()
 
 def listWordNetMatch(list):
     for i in range(len(list)):
         string = list[i]
         wordNetWordMatch(string)
+
+def listStemWordNetMatch(list):
+    for i in range(len(list)):
+        string = list[i]
+        stemWordNetWordMatch(string)
 
 def listDescMatch(lijst):
     for i in range(len(lijst)):
@@ -411,56 +384,110 @@ def wikiGet(title):
     wikiTxt = wikiTxt.decode('utf-8')
     print title,'in wikiTxt'
 
-#======================================================#
-# Stuff                                                #
-#======================================================# 
-def switchEndpoint():
-    global endpoint,repo
-    if repo == "cyttron":
-        repo = "dbp"
-        endpoint="http://dvdgrs-900:8080/openrdf-sesame/repositories/" + repo
-        print "Switched SPARQL endpoint to DBPedia:",endpoint
-        exit
-    else:
-        repo = "Cyttron_DB"
-        endpoint="http://dvdgrs-900:8080/openrdf-sesame/repositories/" + repo
-        print "Switched SPARQL endpoint to Cyttron DB:",endpoint
-        exit
-
+# Read cyttron csv and create list
 def cyttron(listname):
     f = csv.reader(open('db\cyttron.csv', 'rb'), delimiter=';')
     for line in f:
         listname.append(line[0])
     print len(listname)
 
-def keywordlist(listname):
+def wordMatchAll(lijst):
+    import keywords
+    keywords.extractKeywords(lijst,20)
+    freqlist = []
+    nounlist = []
+    bilist = []
+    trilist = []
+    comboList = []
+    
     f = csv.reader(open('db\cyttron-keywords.csv', 'rb'), delimiter=';')
     for line in f:
-        listname.append(str(line).decode('utf-8'))
-    listname.remove(listname[0])
-    return listname
+        freqlist.append(line[0])
+        nounlist.append(line[1])
+        bilist.append(line[2])
+        trilist.append(line[3])
+        comboList.append('. '.join(line))
+    '''
+    listWordMatch(lijst)
+    os.rename('log\wordMatch.csv','log\wordMatch-literal.csv')
+    print "1/12"
+    listWordMatch(freqlist)
+    os.rename('log\wordMatch.csv','log\wordMatch-freqWords.csv')
+    print "2/12"    
+    listWordMatch(nounlist)
+    os.rename('log\wordMatch.csv','log\wordMatch-nounWords.csv')
+    print "3/12"    
+    listWordMatch(bilist)
+    os.rename('log\wordMatch.csv','log\wordMatch-bigrams.csv')
+    print "4/12"    
+    listWordMatch(trilist)
+    os.rename('log\wordMatch.csv','log\wordMatch-trigrams.csv')
+    print "5/12"    
+    listWordMatch(comboList)
+    os.rename('log\wordMatch.csv','log\wordMatch-combo.csv')
+    print "6/12"
+    '''
+    
+    
+    listWordNetMatch(lijst)
+    os.rename('log\wordMatch.csv','log\wordMatch-wordNet-literal.csv')
+    '''
+    listWordNetMatch(freqlist)
+    os.rename('log\wordMatch.csv','log\wordMatch-wordNet-freqWords.csv')
+    listWordNetMatch(nounlist)
+    os.rename('log\wordMatch.csv','log\wordMatch-wordNet-nounWords.csv')
+    listWordNetMatch(bilist)
+    os.rename('log\wordMatch.csv','log\wordMatch-wordNet-bigrams.csv')
+    listWordNetMatch(trilist)
+    os.rename('log\wordMatch.csv','log\wordMatch-wordNet-trigrams.csv')
+    listWordNetMatch(comboList)
+    os.rename('log\wordMatch.csv','log\wordMatch-wordNet-combo.csv')
+    
+    '''
+    # Stem
+    stemList(lijst)
+    stemList(freqlist)
+    stemList(nounlist)
+    stemList(bilist)
+    stemList(trilist)
+    stemList(comboList)
 
-def cleanCSV(csvread):
-    global pub,group,priv
-    for line in csvread:
-        if len(line[0]) > 0:
-            pub.append(line[0])
-        if len(line[1]) > 0:
-            group.append(line[1])
-        if len(line[2]) > 0:
-            priv.append(line[2])
-    total1 = len(pub)
-    total2 = len(group)
-    total3 = len(priv)
-    pub = list(set(pub))
-    group = list(set(group))
-    priv = list(set(priv))
-    print "Public entries:",total1,"total",len(pub),"unique"
-    print "Group entries:",total2,"total",len(group),"unique"
-    print "Priv entries:",total3,"total",len(priv),"unique"
+    '''
+    listWordMatch(lijst)
+    os.rename('log\wordMatch.csv','log\wordMatch-stem-literal.csv')
+    print "7/12"    
+    listWordMatch(freqlist)
+    os.rename('log\wordMatch.csv','log\wordMatch-stem-freqWords.csv')
+    print "8/12"    
+    listWordMatch(nounlist)
+    os.rename('log\wordMatch.csv','log\wordMatch-stem-nounWords.csv')
+    print "9/12"    
+    listWordMatch(bilist)
+    os.rename('log\wordMatch.csv','log\wordMatch-stem-bigrams.csv')
+    print "10/12"    
+    listWordMatch(trilist)
+    os.rename('log\wordMatch.csv','log\wordMatch-stem-trigrams.csv')
+    print "11/12"    
+    listWordMatch(comboList)
+    os.rename('log\wordMatch.csv','log\wordMatch-stem-combo.csv')
+    print "12/12"    
+    '''
 
-
-def stemTxt(sourceList):
+    listStemWordNetMatch(lijst)
+    os.rename('log\wordMatch.csv','log\wordMatch-stem-wordNet-literal.csv')
+    '''
+    listStemWordNetMatch(freqlist)
+    os.rename('log\wordMatch.csv','log\wordMatch-stem-wordNet-freqWords.csv')
+    listStemWordNetMatch(nounlist)
+    os.rename('log\wordMatch.csv','log\wordMatch-stem-wordNet-nounWords.csv')
+    listStemWordNetMatch(bilist)
+    os.rename('log\wordMatch.csv','log\wordMatch-stem-wordNet-bigrams.csv')
+    listStemWordNetMatch(trilist)
+    os.rename('log\wordMatch.csv','log\wordMatch-stem-wordNet-trigrams.csv')
+    listStemWordNetMatch(comboList)
+    os.rename('log\wordMatch.csv','log\wordMatch-stem-wordNet-combo.csv')
+    '''
+def stemList(sourceList):
     stemmer = nltk.PorterStemmer()
     templist = []
     for i in range(len(sourceList)):
@@ -472,6 +499,7 @@ def stemTxt(sourceList):
         sourceList[i] = ' '.join(templist)
     print "Stemmed",len(sourceList),"texts"
 
+# Stem first element of two-element lists
 def stemOnto(ontolist):
     stemmer = nltk.PorterStemmer()
     templist = []
@@ -572,77 +600,6 @@ def descMatchAll():
     os.rename('log\descMatch.csv','log\wiki-stem-descMatch-keyWords-WordNet.csv')
     print "Finished wiki-stem-descMatch-keyWords-WordNet.csv"   
     '''
-def wordMatchAll():
-    import keywords
-    global cyttronKeywords,wikiKeywords
-    cyttronKeywords = []
-    wikiKeywords = []
-    
-    # CYTTRON noStem
-    '''
-    keywords.extractKeywords(cyttronlist,20)
-    keywordlist(cyttronKeywords)
-    
-    cProfile.run('listWordMatch(cyttronlist)')
-    os.rename('log\wordMatch.csv','log\cy-wordMatch.csv')
-    print "Finished cy-wordMatch.csv"
-
-    cProfile.run('listWordMatch(cyttronKeywords)')
-    os.rename('log\wordMatch.csv','log\cy-wordMatch-keyWords.csv')
-    print "Finished cy-wordMatch-keyWords.csv"
-
-    cProfile.run('listWordNetMatch(cyttronKeywords)')
-    os.rename('log\wordMatch.csv','log\cy-wordMatch-keyWords-WordNet.csv')
-    print "Finished cy-wordMatch-keyWords-WordNet.csv\nOn to Wiki!"
-    
-    # WIKI noStem
-    '''
-    keywords.extractKeywords(wikilist,20)
-    keywordlist(wikiKeywords)
-    
-    cProfile.run('listWordMatch(wikilist)')
-    os.rename('log\wordMatch.csv','log\wiki-wordMatch.csv')
-    print "Finished wiki-wordMatch.csv"    
-    
-    cProfile.run('listWordMatch(wikiKeywords)')
-    os.rename('log\wordMatch.csv','log\wiki-wordMatch-keyWords.csv')
-    print "Finished wiki-wordMatch-keyWords.csv"
-
-    cProfile.run('listWordNetMatch(wikiKeywords)')
-    os.rename('log\wordMatch.csv','log\wiki-wordMatch-keyWords-WordNet.csv')
-    print "Finished wiki-wordMatch-keyWords-WordNet.csv"    
-    
-    print "\n**********************"
-    stemAll()
-    print "**********************\n"
-    '''
-    # CYTTRON stem
-
-    cProfile.run('listWordMatch(cyttronlist)')
-    os.rename('log\wordMatch.csv','log\cy-stem-wordMatch.csv')
-    print "Finished cy-stem-wordMatch.csv"
-
-    cProfile.run('listWordMatch(cyttronKeywords)')
-    os.rename('log\wordMatch.csv','log\cy-stem-wordMatch-keyWords.csv')
-    print "Finished cy-stem-wordMatch-keyWords.csv"
-
-    cProfile.run('listWordNetMatch(cyttronKeywords)')
-    os.rename('log\wordMatch.csv','log\cy-stem-wordMatch-keyWords-WordNet.csv')
-    print "Finished cy-stem-wordMatch-keyWords-WordNet.csv"
-    '''
-    # WIKI stem
-
-    cProfile.run('listWordMatch(wikilist)')
-    os.rename('log\wordMatch.csv','log\wiki-stem-wordMatch.csv')
-    print "Finished wiki-stem-wordMatch.csv"    
-    
-    cProfile.run('listWordMatch(wikiKeywords)')
-    os.rename('log\wordMatch.csv','log\wiki-stem-wordMatch-keyWords.csv')
-    print "Finished wiki-stem-wordMatch-keyWords.csv"
-
-    cProfile.run('listWordNetMatch(wikiKeywords)')
-    os.rename('log\wordMatch.csv','log\wiki-stem-wordMatch-keyWords-WordNet.csv')
-    print "Finished wiki-stem-wordMatch-keyWords-WordNet.csv"
 
 def createIndex():
     global desc, dictionary, tfidf, corpus
@@ -650,12 +607,32 @@ def createIndex():
     bowdesc = [dictionary.doc2bow(d) for d in cleandesc]
     vecdesc = tfidf[bowdesc]
 
+def buildCorpus():
+    corpustxt = open('corpus.txt','w')
+    corpustxt.close()
+    directory = "E:\\articles\\articles\\"
+    files = os.listdir("E:\\articles\\articles\\")
+    for i in range(len(files)):
+        currentFile = directory + str(files[i])
+        doc = etree.parse(currentFile)
+        r = doc.xpath('/art/bdy')
+        bdy = r[0]
+        results = [ unicode(child.text) for child in bdy.iterdescendants() if child.tag == 'p' and child.text is not None and child.text != '(To access the full article, please see PDF)' and child.text != '"To access the full article, please see PDF"']
+        temp = '. '.join(results)
+        if len(temp) > 0:
+            print files[i]
+            clean = ' '.join(cleanDoc(temp))
+            corpustxt = open('corpus.txt','a')
+            corpustxt.write('"'+clean.encode('utf-8')+'"\n')
+            corpustxt.close()
+    print 'Finished'    
+
 def main():
     global cyttronlist,wikilist,cyttronKeywords,wikiKeywords
     cyttronlist = []
     cyttron(cyttronlist)
-    getLabels()
     getDescs()
+    getLabels()
     fillDict()
     wikiGet('Alzheimer')
     wikilist.append(wikiTxt)
