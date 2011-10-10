@@ -14,17 +14,17 @@ from gensim import corpora, models, similarities
 import os
 from lxml import etree
 import logging
-logging.root.setLevel(logging.INFO)
-logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+#logging.root.setLevel(logging.INFO)
+#logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 import cProfile
-
-
+'''
 dictionary = corpora.Dictionary.load('vsm\\normal\\normal.dict')
 print dictionary
 corpus = corpora.MmCorpus('vsm\\normal\\corpus.mm')
 print corpus
 tfidf = models.TfidfModel.load('vsm\\normal\\normal.tfidf')
 print tfidf
+'''
 
 # sparql-lists
 label = []
@@ -37,6 +37,7 @@ corpuslist=[]
 simList=[]
 cyttronKeywords = []
 wikiKeywords = []
+tfidfDesc = []
 
 cyttronlist = []
 csvList = []
@@ -188,6 +189,8 @@ def wordMatch(string):
                 ns='go'
             if 'obo/EHDA_' in currentURI:
                 ns='ehda'
+            if '/NCBITaxon' in currentURI:
+                ns='ncbi'
             foundLabel.append([countLabel,currentLabel,ns,currentURI])
     foundLabel.sort(reverse=True)
     print foundLabel
@@ -252,24 +255,41 @@ def compareDoc(doc1,doc2):
     global sim
     doc1 = cleanDoc(doc1)
     doc2 = cleanDoc(doc2)
-    print doc1
-    print doc2
     bowdoc1 = dictionary.doc2bow(doc1)
     bowdoc2 = dictionary.doc2bow(doc2)
     tfidf1 = tfidf[bowdoc1]
     tfidf2 = tfidf[bowdoc2]
     index = similarities.MatrixSimilarity([tfidf1],num_features=len(dictionary))
     sim = index[tfidf2]
+    sim = round(sim,3)*100
     return sim
 
+def vecDesc():
+    # Convert desc to TF-IDF
+    global desc,tfidfDesc
+    tfidfDesc = []
+    cleanDesc = [cleanDoc(d[0]) for d in desc]
+    bowDesc = [dictionary.doc2bow(doc) for doc in cleanDesc]
+    tfidfDesc = [tfidf[d] for d in bowDesc]
+    print "converted list desc to vectors (tfidf): vecDesc",len(tfidfDesc)
+
 def descMatch2(doc):
-    global desc,dictionary,labelDict,simList,sim
+    global desc,dictionary,labelDict,simList,sim,tfidfDesc
     simList=[]
-    for i in range(len(desc)):
-        compareDoc(doc,desc[i][0])
-        if sim > 0:
-            simList.append((sim,labelDict[desc[i][1]]))
-    simList=sorted(simList)
+    # Clean and convert doc to vector space
+    clean = cleanDoc(doc)
+    bowdoc = dictionary.doc2bow(clean)
+    tfidfdoc = tfidf[bowdoc]
+    # Create an index out of the features of the doc
+    index = similarities.MatrixSimilarity([tfidfdoc],num_features=len(dictionary))
+    # Match each vectorized description to the vectorized doc, store in list
+    for i in range(len(tfidfDesc)):
+        sim = index[tfidfDesc[i]]
+        simRnd = str(round(sim,3))
+        if simRnd > 0:
+            simList.append((simRnd,labelDict[desc[i][1]]))
+    simList=sorted(simList,reverse=True)
+    pprint(simList[:10])
 
 def descMatch(doc):
     global dictionary,desc,labelDict,index
@@ -407,43 +427,45 @@ def wordMatchAll(lijst):
         bilist.append(line[2])
         trilist.append(line[3])
         comboList.append('. '.join(line))
-    '''
+
     listWordMatch(lijst)
     os.rename('log\wordMatch.csv','log\wordMatch-literal.csv')
-    print "1/12"
+    print "1/24"
     listWordMatch(freqlist)
     os.rename('log\wordMatch.csv','log\wordMatch-freqWords.csv')
-    print "2/12"    
+    print "2/24"    
     listWordMatch(nounlist)
     os.rename('log\wordMatch.csv','log\wordMatch-nounWords.csv')
-    print "3/12"    
+    print "3/24"    
     listWordMatch(bilist)
     os.rename('log\wordMatch.csv','log\wordMatch-bigrams.csv')
-    print "4/12"    
+    print "4/24"    
     listWordMatch(trilist)
     os.rename('log\wordMatch.csv','log\wordMatch-trigrams.csv')
-    print "5/12"    
+    print "5/24"    
     listWordMatch(comboList)
     os.rename('log\wordMatch.csv','log\wordMatch-combo.csv')
-    print "6/12"
-    '''
-    
+    print "6/24"
     
     listWordNetMatch(lijst)
     os.rename('log\wordMatch.csv','log\wordMatch-wordNet-literal.csv')
-    '''
+    print "7/24"
     listWordNetMatch(freqlist)
     os.rename('log\wordMatch.csv','log\wordMatch-wordNet-freqWords.csv')
+    print "8/24"
     listWordNetMatch(nounlist)
     os.rename('log\wordMatch.csv','log\wordMatch-wordNet-nounWords.csv')
+    print "9/24"
     listWordNetMatch(bilist)
     os.rename('log\wordMatch.csv','log\wordMatch-wordNet-bigrams.csv')
+    print "10/24"
     listWordNetMatch(trilist)
     os.rename('log\wordMatch.csv','log\wordMatch-wordNet-trigrams.csv')
+    print "11/24"
     listWordNetMatch(comboList)
     os.rename('log\wordMatch.csv','log\wordMatch-wordNet-combo.csv')
-    
-    '''
+    print "12/24"    
+
     # Stem
     stemList(lijst)
     stemList(freqlist)
@@ -452,41 +474,44 @@ def wordMatchAll(lijst):
     stemList(trilist)
     stemList(comboList)
 
-    '''
     listWordMatch(lijst)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-literal.csv')
-    print "7/12"    
+    print "13/24"    
     listWordMatch(freqlist)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-freqWords.csv')
-    print "8/12"    
+    print "14/24"    
     listWordMatch(nounlist)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-nounWords.csv')
-    print "9/12"    
+    print "15/24"    
     listWordMatch(bilist)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-bigrams.csv')
-    print "10/12"    
+    print "16/24"    
     listWordMatch(trilist)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-trigrams.csv')
-    print "11/12"    
+    print "17/24"    
     listWordMatch(comboList)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-combo.csv')
-    print "12/12"    
-    '''
+    print "18/24"    
 
     listStemWordNetMatch(lijst)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-wordNet-literal.csv')
-    '''
+    print "19/24" 
     listStemWordNetMatch(freqlist)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-wordNet-freqWords.csv')
+    print "20/24" 
     listStemWordNetMatch(nounlist)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-wordNet-nounWords.csv')
+    print "21/24" 
     listStemWordNetMatch(bilist)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-wordNet-bigrams.csv')
+    print "22/24" 
     listStemWordNetMatch(trilist)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-wordNet-trigrams.csv')
+    print "23/24" 
     listStemWordNetMatch(comboList)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-wordNet-combo.csv')
-    '''
+    print "24/24" 
+
 def stemList(sourceList):
     stemmer = nltk.PorterStemmer()
     templist = []
@@ -631,7 +656,7 @@ def main():
     global cyttronlist,wikilist,cyttronKeywords,wikiKeywords
     cyttronlist = []
     cyttron(cyttronlist)
-    getDescs()
+#    getDescs()
     getLabels()
     fillDict()
     wikiGet('Alzheimer')
