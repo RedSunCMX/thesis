@@ -17,6 +17,7 @@ import logging
 #logging.root.setLevel(logging.INFO)
 #logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 import cProfile
+import pickle
 '''
 dictionary = corpora.Dictionary.load('vsm\\normal\\normal.dict')
 print dictionary
@@ -427,7 +428,7 @@ def wordMatchAll(lijst):
         bilist.append(line[2])
         trilist.append(line[3])
         comboList.append('. '.join(line))
-
+    '''
     listWordMatch(lijst)
     os.rename('log\wordMatch.csv','log\wordMatch-literal.csv')
     print "1/24"
@@ -465,7 +466,7 @@ def wordMatchAll(lijst):
     listWordNetMatch(comboList)
     os.rename('log\wordMatch.csv','log\wordMatch-wordNet-combo.csv')
     print "12/24"    
-
+    '''
     # Stem
     stemList(lijst)
     stemList(freqlist)
@@ -473,7 +474,7 @@ def wordMatchAll(lijst):
     stemList(bilist)
     stemList(trilist)
     stemList(comboList)
-
+    '''
     listWordMatch(lijst)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-literal.csv')
     print "13/24"    
@@ -485,7 +486,8 @@ def wordMatchAll(lijst):
     print "15/24"    
     listWordMatch(bilist)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-bigrams.csv')
-    print "16/24"    
+    print "16/24"
+    
     listWordMatch(trilist)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-trigrams.csv')
     print "17/24"    
@@ -498,7 +500,8 @@ def wordMatchAll(lijst):
     print "19/24" 
     listStemWordNetMatch(freqlist)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-wordNet-freqWords.csv')
-    print "20/24" 
+    print "20/24"
+    '''
     listStemWordNetMatch(nounlist)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-wordNet-nounWords.csv')
     print "21/24" 
@@ -656,9 +659,18 @@ def main():
     global cyttronlist,wikilist,cyttronKeywords,wikiKeywords
     cyttronlist = []
     cyttron(cyttronlist)
-#    getDescs()
-    getLabels()
-    fillDict()
+    labelFile = open('label.pckl','r')
+    label = pickle.load(labelFile)
+    labelFile.close()
+    print "Loaded pickle label:",len(label)
+    labelDictFile = open('labelDict.pckl','r')
+    labelDict = pickle.load(labelDictFile)
+    labelDictFile.close()
+    print "Loaded pickle labelDict"
+    descFile = open('desc.pckl','r')
+    desc = pickle.load(descFile)
+    print "Loaded pickle desc:",len(desc)
+    descFile.close()
     wikiGet('Alzheimer')
     wikilist.append(wikiTxt)
     wikiGet('Apoptosis')
