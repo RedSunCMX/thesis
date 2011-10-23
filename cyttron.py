@@ -14,22 +14,35 @@ from gensim import corpora, models, similarities
 import os
 from lxml import etree
 import logging
-#logging.root.setLevel(logging.INFO)
-#logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+logging.root.setLevel(logging.INFO)
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 import cProfile
 import pickle
-'''
+
 dictionary = corpora.Dictionary.load('vsm\\normal\\normal.dict')
 print dictionary
 corpus = corpora.MmCorpus('vsm\\normal\\corpus.mm')
 print corpus
 tfidf = models.TfidfModel.load('vsm\\normal\\normal.tfidf')
 print tfidf
-'''
+
+labelFile = open('pickle\\label.pckl','r')
+label = pickle.load(labelFile)
+labelFile.close()
+print "Labels:",len(label)
+labelDictFile = open('pickle\\labelDict.pckl','r')
+labelDict = pickle.load(labelDictFile)
+labelDictFile.close()
+descFile = open('pickle\\desc.pckl','r')
+desc = pickle.load(descFile)
+print "Descriptions:",len(desc),"\n"
+descFile.close()
+tfidfFile = open('pickle\\tfidf.pckl','r')
+tfidfDesc = pickle.load(tfidfFile)
+tfidfFile.close()
+print "TF-IDF Descriptions:",len(tfidfDesc),"\n"
 
 # sparql-lists
-label = []
-desc = []
 bigList= []
 foundLabel= []
 foundDesc= []
@@ -38,12 +51,10 @@ corpuslist=[]
 simList=[]
 cyttronKeywords = []
 wikiKeywords = []
-tfidfDesc = []
 
 cyttronlist = []
 csvList = []
 
-labelDict = {}
 wikilist=[]
 
 iup = 0
@@ -61,10 +72,6 @@ wikiTxt=""
 f = open('log\wordMatch.csv','w')
 f.write('"string";"labels"'+ "\n")
 f.close()
-
-f2 = open('log\wordMatch.html','w')
-f2.write('<table border=1>')
-f2.close()
 
 fd = open('log\descMatch.csv','w')
 fd.close()
@@ -161,7 +168,7 @@ def getDescs():
 #======================================================#
 def wordMatch(string):
     # wordMatch with regexp word boundary
-    global label,foundLabel,f,f2,labelDict
+    global label,foundLabel,f,labelDict
     foundLabel=[]
     foundTotal=[]
     foundUnique=[]
@@ -274,66 +281,43 @@ def vecDesc():
     tfidfDesc = [tfidf[d] for d in bowDesc]
     print "converted list desc to vectors (tfidf): vecDesc",len(tfidfDesc)
 
-def descMatch2(doc):
-    global desc,dictionary,labelDict,simList,sim,tfidfDesc
-    simList=[]
-    # Clean and convert doc to vector space
-    clean = cleanDoc(doc)
-    bowdoc = dictionary.doc2bow(clean)
-    tfidfdoc = tfidf[bowdoc]
-    # Create an index out of the features of the doc
-    index = similarities.MatrixSimilarity([tfidfdoc],num_features=len(dictionary))
-    # Match each vectorized description to the vectorized doc, store in list
-    for i in range(len(tfidfDesc)):
-        sim = index[tfidfDesc[i]]
-        simRnd = str(round(sim,3))
-        if simRnd > 0:
-            simList.append((simRnd,labelDict[desc[i][1]]))
-    simList=sorted(simList,reverse=True)
-    pprint(simList[:10])
-
 def descMatch(doc):
-    global dictionary,desc,labelDict,index
-    print "doc:",doc
-    # disable for cy:
-    doc = doc.encode('utf-8')
-    fd = open('log\descMatch.csv','w')
-    fd.close()
+    global dictionary,desc,labelDict,index,tfidfDesc
     
     # 1 clean string, convert to bow, convert to tfidf
     cleanString = cleanDoc(doc)
     bowString = dictionary.doc2bow(cleanString)
     tfidfString = tfidf[bowString]
 
-    #2 clean description, convert to bow, convert to tfidf
-    cleanDesc = [cleanDoc(d[0]) for d in desc]
-    bowDesc = [dictionary.doc2bow(doc) for doc in cleanDesc]
-    tcorpus = tfidf[bowDesc]
+    index = similarities.Similarity('index\\s_',tfidfDesc,num_features=len(dictionary))
 
-    index = similarities.Similarity('d_',tcorpus,num_features=len(dictionary))
-
-    # 3 Load index of the descriptions
+    # 2 Load index of the descriptions
     sims = index[tfidfString]
-    # print "\n"
+    sim = []
     for i in range(len(sims)):
-        print sims[i]
-        ID = sims[i][0]
-        sim = str(sims[i][1]*100)
-        # sim = sim.encode('utf-8')
-        
-        descString = desc[ID][0]
-        URI = desc[ID][1]
-        label = labelDict[URI]
+        sim.append((round(sims[i],3),desc[i][1]))
 
-        # label = label.encode('utf-8')
-        # descString = descString.encode('utf-8')
-        
-        # print "Label:",label,"\n","Similarity:",sim,"\n","Description:",descString + "\n"
-        fd = open('log\descMatch.csv','a')
-        fd.write('";"' + sim + '";"' + label + '";"' + descString)
-        fd.close()
+    sim = sorted(sim,reverse=True)
+    print sim[:10]
     fd = open('log\descMatch.csv','a')
-    fd.write('"\n')
+    fd.write('"' + doc + '";"')
+    sim2=[]
+    for i in range(len(sim[:10])):
+        if 'obo/MPATH_' in sim[i][1]:
+            ns = 'mpath'
+        if 'obo/DOID_' in sim[i][1]:
+            ns = 'doid'
+        if 'EVS/Thesaurus' in sim[i][1]:
+            ns = 'nci'
+        if 'http://purl.org/obo/owl/GO' in sim[i][1]:
+            ns='go'
+        if 'obo/EHDA_' in sim[i][1]:
+            ns='ehda'
+        if '/NCBITaxon' in sim[i][1]:
+            ns='ncbi'
+        sim2.append(str(ns) + ":" + str(labelDict[sim[i][1]]) + " (" + str(sim[i][0]) + ")")
+    print ', '.join(sim2)
+    fd.write(', '.join(sim2) + '"\n')
     fd.close()
 
 #======================================================#
@@ -373,12 +357,16 @@ def listStemWordNetMatch(list):
         stemWordNetWordMatch(string)
 
 def listDescMatch(lijst):
+    fd = open('log\descMatch.csv','w')
+    fd.close()    
     for i in range(len(lijst)):
         string = lijst[i]
         descMatch(string)
         print ""
 
-def listWordNetDescMatch(list):
+def listDescWordNetMatch(list):
+    fd = open('log\descMatch.csv','w')
+    fd.close()      
     for i in range(len(list)):
         string = list[i]
         print str(i+1),"of",str(len(list))
@@ -428,7 +416,7 @@ def wordMatchAll(lijst):
         bilist.append(line[2])
         trilist.append(line[3])
         comboList.append('. '.join(line))
-    '''
+
     listWordMatch(lijst)
     os.rename('log\wordMatch.csv','log\wordMatch-literal.csv')
     print "1/24"
@@ -466,7 +454,7 @@ def wordMatchAll(lijst):
     listWordNetMatch(comboList)
     os.rename('log\wordMatch.csv','log\wordMatch-wordNet-combo.csv')
     print "12/24"    
-    '''
+
     # Stem
     stemList(lijst)
     stemList(freqlist)
@@ -474,7 +462,7 @@ def wordMatchAll(lijst):
     stemList(bilist)
     stemList(trilist)
     stemList(comboList)
-    '''
+
     listWordMatch(lijst)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-literal.csv')
     print "13/24"    
@@ -501,7 +489,7 @@ def wordMatchAll(lijst):
     listStemWordNetMatch(freqlist)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-wordNet-freqWords.csv')
     print "20/24"
-    '''
+
     listStemWordNetMatch(nounlist)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-wordNet-nounWords.csv')
     print "21/24" 
@@ -543,91 +531,118 @@ def stemOnto(ontolist):
 def stemAll():
     global label,desc,cyttronlist,wikilist,wikiKeywords,cyttronKeywords
     print "1/6 Stemming cyttronlist...",
-    stemTxt(cyttronlist)
+    stemList(cyttronlist)
     print "2/6 Stemming wikilist...",
-    stemTxt(wikilist)
+    stemList(wikilist)
     print "3/6 Stemming cyttronKeywords...",
-    stemTxt(cyttronKeywords)    
+    stemList(cyttronKeywords)    
     print "4/6 Stemming wikiKeywords...",
-    stemTxt(wikiKeywords)
+    stemList(wikiKeywords)
     print "5/6 Stemming label...",
     stemOnto(label)
     print "6/6 Stemming desc...",
     stemOnto(desc)
 
-def descMatchAll():
+def descMatchAll(lijst):
     import keywords
-    global cyttronKeywords,wikiKeywords,dictionary,corpus,tfidf
-    cyttronKeywords = []
-    wikiKeywords = []    
+    keywords.extractKeywords(lijst,20)
+    freqlist = []
+    nounlist = []
+    bilist = []
+    trilist = []
+    comboList = []
     
+    f = csv.reader(open('db\cyttron-keywords.csv', 'rb'), delimiter=';')
+    for line in f:
+        freqlist.append(line[0])
+        nounlist.append(line[1])
+        bilist.append(line[2])
+        trilist.append(line[3])
+        comboList.append('. '.join(line))
     '''
-    keywords.extractKeywords(cyttronlist,20)
-    keywordlist(cyttronKeywords)
+    listDescMatch(lijst)
+    os.rename('log\descMatch.csv','log\descMatch-literal.csv')
+    print "1/24"
+    listDescMatch(freqlist)
+    os.rename('log\descMatch.csv','log\descMatch-freqWords.csv')
+    print "2/24"    
+    listDescMatch(nounlist)
+    os.rename('log\descMatch.csv','log\descMatch-nounWords.csv')
+    print "3/24"    
+    listDescMatch(bilist)
+    os.rename('log\descMatch.csv','log\descMatch-bigrams.csv')
+    print "4/24"    
+    listDescMatch(trilist)
+    os.rename('log\descMatch.csv','log\descMatch-trigrams.csv')
+    print "5/24"    
+    listDescMatch(comboList)
+    os.rename('log\descMatch.csv','log\descMatch-combo.csv')
+    print "6/24"
     
-    cProfile.run('listDescMatch(cyttronlist)')
-    os.rename('log\descMatch.csv','log\cy-descMatch.csv')
-    print "Finished cy-descMatch.csv"
-
-    cProfile.run('listDescMatch(cyttronKeywords)')
-    os.rename('log\descMatch.csv','log\cy-descMatch-keyWords.csv')
-    print "Finished cy-descMatch-keyWords.csv"
-
-    cProfile.run('listWordNetDescMatch(cyttronKeywords)')
-    os.rename('log\descMatch.csv','log\cy-descMatch-keyWords-WordNet.csv')
-    print "Finished cy-descMatch-keyWords-WordNet.csv"
+    listDescWordNetMatch(lijst)
+    os.rename('log\descMatch.csv','log\descMatch-wordNet-literal.csv')
+    print "7/24"
+    listDescWordNetMatch(freqlist)
+    os.rename('log\descMatch.csv','log\descMatch-wordNet-freqWords.csv')
+    print "8/24"
+    listDescWordNetMatch(nounlist)
+    os.rename('log\descMatch.csv','log\descMatch-wordNet-nounWords.csv')
+    print "9/24"
+    listDescWordNetMatch(bilist)
+    os.rename('log\descMatch.csv','log\descMatch-wordNet-bigrams.csv')
+    print "10/24"
+    listDescWordNetMatch(trilist)
+    os.rename('log\descMatch.csv','log\descMatch-wordNet-trigrams.csv')
+    print "11/24"
+    listDescWordNetMatch(comboList)
+    os.rename('log\descMatch.csv','log\descMatch-wordNet-combo.csv')
+    print "12/24"
     '''
-    keywords.extractKeywords(wikilist,20)
-    keywordlist(wikiKeywords)
+    stemList(lijst)
+    stemList(freqlist)
+    stemList(nounlist)
+    stemList(bilist)
+    stemList(trilist)
+    stemList(comboList)    
+
+    listDescMatch(lijst)
+    os.rename('log\descMatch.csv','log\descMatch-stem-literal.csv')
+    print "13/24"
+    listDescMatch(freqlist)
+    os.rename('log\descMatch.csv','log\descMatch-stem-freqWords.csv')
+    print "14/24"    
+    listDescMatch(nounlist)
+    os.rename('log\descMatch.csv','log\descMatch-stem-nounWords.csv')
+    print "15/24"    
+    listDescMatch(bilist)
+    os.rename('log\descMatch.csv','log\descMatch-stem-bigrams.csv')
+    print "16/24"    
+    listDescMatch(trilist)
+    os.rename('log\descMatch.csv','log\descMatch-stem-trigrams.csv')
+    print "17/24"    
+    listDescMatch(comboList)
+    os.rename('log\descMatch.csv','log\descMatch-stem-combo.csv')
+    print "18/24"
     
-    cProfile.run('listDescMatch(wikilist)')
-    os.rename('log\descMatch.csv','log\wiki-descMatch.csv')
-    print "Finished wiki-descMatch.csv"
-
-    cProfile.run('listDescMatch(wikiKeywords)')
-    os.rename('log\descMatch.csv','log\wiki-descMatch-keyWords.csv')
-    print "Finished wiki-descMatch-keyWords.csv"
-
-    cProfile.run('listWordNetDescMatch(cyttronKeywords)')
-    os.rename('log\descMatch.csv','log\wiki-descMatch-keyWords-WordNet.csv')
-    print "Finished wiki-descMatch-keyWords-WordNet.csv"    
-    '''
-    print "\n**********************"
-    stemAll()
-    print "Loading stemmed training corpus..."
-    dictionary = corpora.Dictionary.load('vsm\\stem\\stemcorpus.dict')
-    print dictionary
-    corpus = corpora.MmCorpus('vsm\\stem\\stemcorpus.mm')
-    print corpus
-    tfidf = models.TfidfModel.load('vsm\\stem\\stemcorpus.tfidf')
-    print tfidf      
-    print "**********************\n"
-    index = similarities.Similarity.load('stem.index')
+    listDescWordNetMatch(lijst)
+    os.rename('log\descMatch.csv','log\descMatch-stem-wordNet-literal.csv')
+    print "19/24"
+    listDescWordNetMatch(freqlist)
+    os.rename('log\descMatch.csv','log\descMatch-stem-wordNet-freqWords.csv')
+    print "20/24"
+    listDescWordNetMatch(nounlist)
+    os.rename('log\descMatch.csv','log\descMatch-stem-wordNet-nounWords.csv')
+    print "21/24"
+    listDescWordNetMatch(bilist)
+    os.rename('log\descMatch.csv','log\descMatch-stem-wordNet-bigrams.csv')
+    print "22/24"
+    listDescWordNetMatch(trilist)
+    os.rename('log\descMatch.csv','log\descMatch-stem-wordNet-trigrams.csv')
+    print "23/24"
+    listDescWordNetMatch(comboList)
+    os.rename('log\descMatch.csv','log\descMatch-stem-wordNet-combo.csv')
+    print "24/24"
     
-    cProfile.run('listDescMatch(cyttronlist)')
-    os.rename('log\descMatch.csv','log\cy-stem-descMatch.csv')
-    print "Finished cy-stem-descMatch.csv"
-
-    cProfile.run('listDescMatch(cyttronKeywords)')
-    os.rename('log\descMatch.csv','log\cy-stem-descMatch-keyWords.csv')
-    print "Finished cy-stem-descMatch-keyWords.csv"
-
-    cProfile.run('listWordNetDescMatch(cyttronKeywords)')
-    os.rename('log\descMatch.csv','log\cy-stem-descMatch-keyWords-WordNet.csv')
-    print "Finished cy-stem-descMatch-keyWords-WordNet.csv"
-    
-    cProfile.run('listDescMatch(wikilist)')
-    os.rename('log\descMatch.csv','log\wiki-stem-descMatch.csv')
-    print "Finished wiki-stem-descMatch.csv"
-
-    cProfile.run('listDescMatch(wikiKeywords)')
-    os.rename('log\descMatch.csv','log\wiki-stem-descMatch-keyWords.csv')
-    print "Finished wiki-stem-descMatch-keyWords.csv"
-
-    cProfile.run('listWordNetDescMatch(wikiKeywords)')
-    os.rename('log\descMatch.csv','log\wiki-stem-descMatch-keyWords-WordNet.csv')
-    print "Finished wiki-stem-descMatch-keyWords-WordNet.csv"   
-    '''
 
 def createIndex():
     global desc, dictionary, tfidf, corpus
@@ -659,18 +674,7 @@ def main():
     global cyttronlist,wikilist,cyttronKeywords,wikiKeywords
     cyttronlist = []
     cyttron(cyttronlist)
-    labelFile = open('label.pckl','r')
-    label = pickle.load(labelFile)
-    labelFile.close()
-    print "Loaded pickle label:",len(label)
-    labelDictFile = open('labelDict.pckl','r')
-    labelDict = pickle.load(labelDictFile)
-    labelDictFile.close()
-    print "Loaded pickle labelDict"
-    descFile = open('desc.pckl','r')
-    desc = pickle.load(descFile)
-    print "Loaded pickle desc:",len(desc)
-    descFile.close()
+
     wikiGet('Alzheimer')
     wikilist.append(wikiTxt)
     wikiGet('Apoptosis')
