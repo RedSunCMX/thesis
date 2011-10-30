@@ -559,7 +559,7 @@ def descMatchAll(lijst):
         bilist.append(line[2])
         trilist.append(line[3])
         comboList.append('. '.join(line))
-    '''
+    
     listDescMatch(lijst)
     os.rename('log\descMatch.csv','log\descMatch-literal.csv')
     print "1/24"
@@ -597,7 +597,7 @@ def descMatchAll(lijst):
     listDescWordNetMatch(comboList)
     os.rename('log\descMatch.csv','log\descMatch-wordNet-combo.csv')
     print "12/24"
-    '''
+
     stemList(lijst)
     stemList(freqlist)
     stemList(nounlist)
@@ -642,7 +642,6 @@ def descMatchAll(lijst):
     listDescWordNetMatch(comboList)
     os.rename('log\descMatch.csv','log\descMatch-stem-wordNet-combo.csv')
     print "24/24"
-    
 
 def createIndex():
     global desc, dictionary, tfidf, corpus
@@ -674,7 +673,7 @@ def main():
     global cyttronlist,wikilist,cyttronKeywords,wikiKeywords
     cyttronlist = []
     cyttron(cyttronlist)
-
+    '''
     wikiGet('Alzheimer')
     wikilist.append(wikiTxt)
     wikiGet('Apoptosis')
@@ -684,6 +683,6 @@ def main():
     wikiGet('Zebrafish')
     wikilist.append(wikiTxt) 
     print len(wikilist)
-
+    '''
 if __name__ == '__main__':
     main()
