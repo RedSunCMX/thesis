@@ -18,7 +18,8 @@ visited = []
 path = []
 iup = 0
 endpoint = 'http://home.graus.nu:8080/openrdf-sesame/repositories/cyttron'
-# endpoint = 'http://dbpedia.org/sparql'
+#endpoint = 'http://dbpedia.org/sparql'
+#conn = sqlite3.connect('db/dbp.db')
 done = False
 
 URIx = 'http://purl.obolibrary.org/obo/MPATH_12'
@@ -52,16 +53,14 @@ class MyQUEUE:
         return result
 
 def SemSim(URI1,URI2):
+    global queue,visited,done,GR,log,path    
     q = MyQUEUE()
-    BFS(URI1,URI2,q)
-
-def BFS(URI1,URI2,q):
-    global queue,visited,done,GR,log,path
-
+    
     # Sort list so node1-node2 == node2-node1
     lijstje=[URI1,URI2]
     URI1 = sorted(lijstje)[0]
     URI2 = sorted(lijstje)[1]
+    print "\nTrying:",URI1,URI2
 
     log = open('pathfinderlog.txt','a')                            
     log.write('"node1";"' + str(URI1) + '"\n')
@@ -73,7 +72,7 @@ def BFS(URI1,URI2,q):
     c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(URI1,URI2))
     
     if len(c.fetchall()) > 0:
-        print "Initial URI Path already exists!"
+        print "Initial URI Path already exists!",URI1.rsplit('/')[-1],"-",URI2.rsplit('/')[-1]
         c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(URI1,URI2))
         result = c.fetchall()
         c.close()
@@ -81,15 +80,12 @@ def BFS(URI1,URI2,q):
         URI2 = result[0][1]
         pathlength = result[0][2]
         path = eval(result[0][3])
-        print "URI1:",URI1
-        print "URI2:",URI2
         print "pathlength:",pathlength
         print "path:",path
         log = open('pathfinderlog.txt','a')
         log.write('"pathlength";"' + str(pathlength) + '"\n')
         log.close()
         done = True
-    
     else:
         print "Initial URI Path is unknown to me..."
         done = False
@@ -109,28 +105,29 @@ def BFS(URI1,URI2,q):
                     if GR.has_node(node2) is False:
                         GR.add_node(node2)
                     if GR.has_edge((node1,node2)) is False:
-                        GR.add_edge((node1,node2),label=str(edgeLabel))
+                        GR.add_edge((node1,node2),label=str(edgeLabel).rsplit('/')[-1])
                     c = conn.cursor()
                     c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(node1,node2))
                     if len(c.fetchall()) > 0:
                         print "Path already exists!"
                     else:
                         print "Inserting path:","\t",node1.rsplit('/')[-1],edgeLabel.rsplit('/')[-1],node2.rsplit('/')[-1]
-                        c.execute('insert into thesis values (?,?,1,NULL)',(node1,node2))
+                        temp = str([[node1,edgeLabel,node2]])
+                        c.execute('insert into thesis values (?,?,1,?)',(node1,node2,temp))
                         conn.commit()
                     c.close()
 
-                    if node1 == URI2:
+                    if node1 == URI2 or node2 == URI2:
                         done = True
+                        # Create path in list
                         showPath(queue,URI1,URI2)
                         if done == True:
                             string = "Found a link! Stored in path. Length:",len(path),"| Visited:",len(visited),"nodes."
                             log = open('pathfinderlog.txt','a')                            
                             log.write('"pathlength";"' + str(len(path)) + '"\n')
                             log.close()
-                            print string                            
+                            print string
                             print 'Wrote path to log-file'
-                            
                             c = conn.cursor()
                             c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(URI1,URI2))
                             if len(c.fetchall()) > 0:
@@ -142,38 +139,14 @@ def BFS(URI1,URI2,q):
                             c.close()
                             findFlips(path,URI1,URI2)
                             return len(path)
-                        
-                    if node2 == URI2:
-                        print "\nFound a link!"
-                        done = True
-                        showPath(queue,URI1,URI2)
-                        if done == True:
-                            string = "Found a link! Stored in path. Length:",len(path),"| Visited:",len(visited),"nodes."
-                            print string
-                            log = open('pathfinderlog.txt','a')                            
-                            log.write('"pathlength";"' + str(len(path)) + '"\n' + 'path";"' + str(path) + '"\n')
-                            log.close()
-                            print 'Wrote path to log-file'
 
-                            c = conn.cursor()
-                            c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(URI1,URI2))
-                            if len(c.fetchall()) > 0:
-                                print "BEST VER Path already exists!"
-                            else:
-                                print "BEST VER Inserting path!"
-                                c.execute('insert into thesis values (?,?,?,?)',(URI1,URI2,len(path),str(path)))
-                                conn.commit()
-                            c.close()
-                            findFlips(path,URI1,URI2)                            
-                            return len(path)
-                        
                     if node1 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node1 and 'http://www.geneontology.org/formats/oboInOwl#ObsoleteClass' not in node1:
                         node = node1
                         visited.append(node)
                         getNodes(node,URI2)
                         q.enqueue(context)
                     else:
-                        if 'http://www.w3.org/2002/07/owl#Class' not in node2 and 'http://www.geneontology.org/formats/oboInOwl#ObsoleteClass' not in node2 and node2 not in visited:
+                        if node2 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node2 and 'http://www.geneontology.org/formats/oboInOwl#ObsoleteClass' not in node2:
                             node = node2
                             visited.append(node)
                             getNodes(node,URI2)
@@ -182,123 +155,127 @@ def BFS(URI1,URI2,q):
                             i+=1
                 else:
                     node = curr_path[0]
-                    print "node",node
+                    print "Start node:",node
                     visited.append(node)
                     getNodes(node,URI2)
                     q.enqueue(context)
 
 def createGraph(list_of_nodes):
-    global path,dicto,pathList,GR
-    for i in range(1,len(list_of_nodes)):
-        currentURI = list_of_nodes[i]
-        GR.add_node(currentURI)
-        otherURI = list_of_nodes[i-1]
-        GR.add_node(otherURI)        
-        SemSim(otherURI,currentURI)
+    global path,dicto,pathList,GR,G
 
-        # plot BFS result
-        for i in range(len(path)):
-            nodeLeft = path[i][0]
-            edgeLabel = path[i][1]
-            nodeRight = path[i][2]
-            if GR.has_node(nodeLeft) is False:
-                GR.add_node(nodeLeft)
-            if GR.has_node(nodeRight) is False:
-                GR.add_node(nodeRight)
-            if GR.has_edge((nodeLeft,nodeRight)) is False:
-                GR.add_edge((nodeLeft,nodeRight),label=str(edgeLabel))
+    # Default settings
+    G = digraph()
+    G.add_node("graph",[("layout","circo")])
+    G.add_node("node",[("style","filled"),("fontname","Arial"),("fontsize","13"),('fontcolor','white'),('shape','circle')])
+    G.add_node("edge",[("fontname","Arial"),("fontsize","10"),('penwidth','5'),('fontcolor','azure4')])
 
-        # plot parent1
-        findParents([[currentURI]])
-        log = open('pathfinderlog.txt','a')                            
-        log.write('"node1 depth: ' + str(pathList[0][0]) + '";"' + str(len(pathList)) + '"\n')
-        log.close()
-        if GR.has_node(pathList[0][0]) is False:
-            GR.add_node(pathList[0][0])
-        for i in range(1,len(pathList)):
-            prevNode = pathList[i-1][0]
-            node = pathList[i][0]
-            if GR.has_node(node) is False:
-                GR.add_node(node)
-            if GR.has_edge((prevNode,node)) is False:
-                GR.add_edge((prevNode,node),label='rdfs:subClassOf')
+    # Double for-loop to go through all nodes/connections
+    for i in range(len(list_of_nodes)):
+        currentURI = list_of_nodes[i]        
+        for j in range(i+1,len(list_of_nodes)):
+            if GR.has_node(currentURI) is False:         
+                GR.add_node(currentURI)
+            otherURI = list_of_nodes[j]
+            if GR.has_node(otherURI) is False:        
+                GR.add_node(otherURI)
+            SemSim(otherURI,currentURI)
 
-        # plot parent2
-        findParents([[otherURI]])
-        log = open('pathfinderlog.txt','a')                            
-        log.write('"node2 depth: ' + str(pathList[0][0]) + '";"' + str(len(pathList)) + '"\n')
-        log.close()        
-        if GR.has_node(pathList[0][0]) is False:
-            GR.add_node(pathList[0][0])
-        for i in range(1,len(pathList)):
-            prevNode = pathList[i-1][0]
-            node = pathList[i][0]
-            if GR.has_node(node) is False:
-                GR.add_node(node)
-            if GR.has_edge((prevNode,node)) is False:
-                GR.add_edge((prevNode,node),label='rdfs:subClassOf')
+            # plot BFS result
+            for i in range(len(path)):
+                nodeLeft = path[i][0]
+                edgeLabel = path[i][1]
+                nodeRight = path[i][2]
+                if GR.has_node(nodeLeft) is False:
+                    GR.add_node(nodeLeft)
+                if GR.has_node(nodeRight) is False:
+                    GR.add_node(nodeRight)
+                if GR.has_edge((nodeLeft,nodeRight)) is False:
+                    GR.add_edge((nodeLeft,nodeRight),label=str(edgeLabel).rsplit('/')[-1])
 
-    # write graph to DOT-file
-    dot = write(GR)
-    dotLabel = relabel(dot)
-    f = open('graph.gv','w')
-    f.write(dotLabel)
-    
-    findLCS(list_of_nodes[0],list_of_nodes[1])
-    pathGraph(path)    
+            # plot parent1
+            findParents([[currentURI]])
+            log = open('pathfinderlog.txt','a')                            
+            log.write('"node1 depth: ' + str(pathList[0][0]) + '";"' + str(len(pathList)) + '"\n')
+            log.close()
+            if GR.has_node(pathList[0][0]) is False:
+                GR.add_node(pathList[0][0])
+            for i in range(1,len(pathList)):
+                prevNode = pathList[i-1][0]
+                node = pathList[i][0]
+                if GR.has_node(node) is False:
+                    GR.add_node(node)
+                if GR.has_edge((prevNode,node)) is False:
+                    GR.add_edge((prevNode,node),label='"rdfs:subClassOf"')
+
+            # plot parent2
+            findParents([[otherURI]])
+            log = open('pathfinderlog.txt','a')                            
+            log.write('"node2 depth: ' + str(pathList[0][0]) + '";"' + str(len(pathList)) + '"\n')
+            log.close()        
+            if GR.has_node(pathList[0][0]) is False:
+                GR.add_node(pathList[0][0])
+            for i in range(1,len(pathList)):
+                prevNode = pathList[i-1][0]
+                node = pathList[i][0]
+                if GR.has_node(node) is False:
+                    GR.add_node(node)
+                if GR.has_edge((prevNode,node)) is False:
+                    GR.add_edge((prevNode,node),label='"rdfs:subClassOf"')
+                    
+            findLCS(currentURI,otherURI)
+            
+            pathGraph(path) 
+
+    # write path to DOT
+    dot = write(G)
+    f = open('path.gv','w')
+    f.write(dot)
+    f.close()    
 
 def pathGraph(path):
-    global dicto,pathList
-    G = digraph()
+    global dicto,pathList,G
 
     # Add start nodes, add LCS, draw path in yellow
     startNode1=dicto[parent1[0][0]]
     startNode2=dicto[parent2[0][0]]
     LCS=dicto[pathList[0][0]]
-    G.add_node(startNode1,attrs=[('color', 'blue')])
-    G.add_node(startNode2,attrs=[('color', 'blue')])              
-    G.add_node(LCS,attrs=[('color', 'red')])
+    if G.has_node(startNode1) is False:
+        G.add_node(startNode1,attrs=[('color', 'peru')])
+    if G.has_node(startNode2) is False:
+        G.add_node(startNode2,attrs=[('color', 'peru')])
+    if G.has_node(LCS) is False:       
+        G.add_node(LCS,attrs=[('color', 'seagreen2')])
     
     for i in range(len(path)):
         node1=dicto[path[i][0]]
         edge=path[i][1]
         node2=dicto[path[i][2]]
-        print node1,edge,node2
         if G.has_node(node1) is False:
-            G.add_node(node1,attrs=[('color', 'yellow'+str(i+1))])
-            print "Added",node1
+            G.add_node(node1,attrs=[('color', 'orange1')])
         if G.has_node(node2) is False:
-            G.add_node(node2,attrs=[('color', 'yellow'+str(i+1))])
-            print "Added",node2            
+            G.add_node(node2,attrs=[('color', 'orange1')])
         if G.has_edge((node1,node2)) is False:                    
-            G.add_edge((node1,node2),label=str(edge))
-            print "Added",edge
+            G.add_edge((node1,node2),label=str(edge).rsplit('/')[-1])
 
     for i in range(1,len(parent1)):
         prevNode = dicto[parent1[i-1][0]]
         node = dicto[parent1[i][0]]
         if G.has_node(prevNode) is False:
-            G.add_node(prevNode,attrs=[('color', 'green'+str(i))])
+            G.add_node(prevNode,attrs=[('color', 'lightsalmon')])
         if G.has_node(node) is False:
-            G.add_node(node,attrs=[('color', 'green'+str(i))])
+            G.add_node(node,attrs=[('color', 'lightsalmon')])
         if G.has_edge((prevNode,node)) is False:
-            G.add_edge((prevNode,node),label="rdfs:subClassOf")
+            G.add_edge((prevNode,node),label="rdfs#subClassOf")
 
     for i in range(1,len(parent2)):
         prevNode = dicto[parent2[i-1][0]]
         node = dicto[parent2[i][0]]
         if G.has_node(prevNode) is False:
-            G.add_node(prevNode,attrs=[('color', 'red'+str(i))])
+            G.add_node(prevNode,attrs=[('color', 'lightsalmon')])
         if G.has_node(node) is False:
-            G.add_node(node,attrs=[('color', 'red'+str(i))])
+            G.add_node(node,attrs=[('color', 'lightsalmon')])
         if G.has_edge((prevNode,node)) is False:
-            G.add_edge((prevNode,node),label="rdfs:subClassOf")
-            
-    print G
-    dot = write(G)
-    f = open('path.gv','w')
-    f.write(dot)
-    f.close()
+            G.add_edge((prevNode,node),label="rdfs#subClassOf")
 
 def relabel(text):
     # from URI to label
@@ -370,7 +347,7 @@ def getNodes(URI,URI2):
     global context
     context=[]
     sparql = SPARQLWrapper(endpoint)
-    print URI
+    print URI,"has",
     
     # Direct neighbours
     querystring="SELECT DISTINCT ?p ?s WHERE { <" + str(URI) + "> ?p ?s . FILTER (isURI(?s )) . }"
@@ -406,9 +383,10 @@ def getNodes(URI,URI2):
             context.append([x["s2"]["value"],x["p"]["value"],URI])
     
     if len(context) > 0:
+        print len(context),"neighbours"
         return context
     else:
-        print "No neighbours found..."
+        print "no neighbours"
         exit
 
 #======================================================#
@@ -417,7 +395,7 @@ def getNodes(URI,URI2):
 
 def findLCS(URI1,URI2):
     LCS = [[findCommonParents(URI1,URI2)]]
-    print "LCS:",LCS
+    print "LCS:",LCS,"of (",URI1.rsplit('/')[-1],"-",URI2.rsplit('/')[-1],")"
     findParents(LCS)
     log = open('pathfinderlog.txt','a')                            
     log.write('"LCS depth: ' + str(pathList[0][0]) + '";"' + str(len(pathList)) + '"\n')
@@ -427,7 +405,7 @@ def findParents(URI):
     global iup, pathList,endpoint
     list_out=[]
     iup += 1
-    print "[findParents]\t","Hop",iup,"found",len(URI[iup-1]),"nodes"
+    # print "[findParents]\t","Hop",iup,"found",len(URI[iup-1]),"nodes"
     for i in range(len(URI[iup-1])):
         sparql = SPARQLWrapper(endpoint)
         sparql.addCustomParameter("infer","false")
@@ -443,12 +421,6 @@ def findParents(URI):
         URI.append(list_out)
         findParents(URI)
     else:
-        print "[findParents]\t","Reached the top!"
-        print "[findParents]\t",URI[0][0]
-        print "[findParents]\t","Hop | Path:"
-        print "[findParents]\t","Depth:",len(URI)
-        for i in range(len(URI)):
-            print "[findParents]\t",i,"  |",URI[i]
         iup=0
         pathList = URI
         return pathList
@@ -465,7 +437,7 @@ def findCommonParents(URI1,URI2):
 
     # First pathList generation
     findParents(URI1)
-    print "[findCommonP]\t","1st URI processed\n"
+    # print "[findCommonP]\t","1st URI processed\n"
     result1 = pathList
     
     # Flush results for 2nd
@@ -473,7 +445,7 @@ def findCommonParents(URI1,URI2):
 
     # Second pathList generation
     findParents(URI2)
-    print "[findCommonP]\t","2nd URI processed\n"
+    # print "[findCommonP]\t","2nd URI processed\n"
     result2 = pathList
 
     for i in range(len(result1)):
@@ -481,26 +453,16 @@ def findCommonParents(URI1,URI2):
             for i2 in range(len(result1[i])):
                 for j2 in range(len(result2[j])):
                     if set(result1[i][i2]) == set(result2[j][j2]):
-                        print "[findCommonP]\t","CommonParent found!"
+                        # print "[findCommonP]\t","CommonParent found!"
                         done = True
-                        print "[findCommonP]\t","Result1[" + str(i) + "][" + str(i2) +"]",
-                        print "matches with result2[" +str(j) + "][" + str(j2) + "]"
-                        print "[findCommonP]\t",result1[i][i2]
+                        # print "[findCommonP]\t","Result1[" + str(i) + "][" + str(i2) +"]",
+                        # print "matches with result2[" +str(j) + "][" + str(j2) + "]"
+                        # print "[findCommonP]\t",result1[i][i2]
                         parent1 = result1
                         parent2 = result2
                         if done == True:
                             return result1[i][i2]
     return parent1,parent2
-
-def findMultiParent(URIlist):
-    global bigList
-    n = len(URIlist)
-    for i in range(n):
-        for j in range(i+1,n):
-            print str(URIlist[i]),"-",str(URIlist[j])
-            findCommonParents(URIlist[i],URIlist[j])
-            bigList.append([parent1,parent2])
-
 
 #======================================================#
 # Textual comparison                                   #
