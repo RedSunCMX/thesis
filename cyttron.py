@@ -19,11 +19,11 @@ logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=lo
 import cProfile
 import pickle
 
-dictionary = corpora.Dictionary.load('vsm\\normal\\normal.dict')
+dictionary = corpora.Dictionary.load('vsm\\stem\\stem.dict')
 print dictionary
-corpus = corpora.MmCorpus('vsm\\normal\\corpus.mm')
+corpus = corpora.MmCorpus('vsm\\stem\\stemcorpus.mm')
 print corpus
-tfidf = models.TfidfModel.load('vsm\\normal\\normal.tfidf')
+tfidf = models.TfidfModel.load('vsm\\stem\\stem.tfidf')
 print tfidf
 
 labelFile = open('pickle\\label.pckl','r')
@@ -256,8 +256,8 @@ def cleanDoc(doc):
     stemmer = nltk.PorterStemmer()
     tokens = WordPunctTokenizer().tokenize(doc)
     clean = [token.lower() for token in tokens if token.lower() not in stopset and len(token) > 2]
-    # final = [stemmer.stem(word) for word in clean]
-    return clean
+    final = [stemmer.stem(word) for word in clean]
+    return final
 
 def compareDoc(doc1,doc2):
     global sim
