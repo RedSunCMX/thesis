@@ -15,7 +15,7 @@ queue = []
 visited = []
 path = []
 iup = 0
-
+contextURI = 'file://mpath.owl'
 conn = sqlite3.connect('db/paths.db')
 endpoint = 'http://home.graus.nu:8080/openrdf-sesame/repositories/cyttron'
 
@@ -88,65 +88,81 @@ def SemSim(URI1,URI2):
 
     # If it's not, start BFS algorithm
     else:
-        print "Initial URI Path is unknown to me..."
         done = False
         queue=[]
         visited=[]
         q.enqueue([URI1])
         while q.IsEmpty() == False:
             curr_path = q.dequeue()
-            print "Curr_path:",curr_path
             queue.append(curr_path)
             for i in range(len(curr_path)):
-                print "Analyzing path:",curr_path[i]
-                if len(curr_path) > 1:
-                    node1 = curr_path[i][0]
-                    node2 = curr_path[i][2]
-                    edgeLabel = curr_path[i][1]
-                    # Check if either of the fetched nodes is the target node
-                    if node1 == URI2 or node2 == URI2:
-                        done = True
-                        # Create path in list
-                        showPath(queue,URI1,URI2)
-                        if done == True:
-                            string = "Found a link! Stored in path. Length:",len(path),"| Visited:",len(visited),"nodes."
-                            log = open('pathfinderlog.txt','a')                            
-                            log.write('"pathlength";"' + str(len(path)) + '"\n')
-                            log.close()
-                            print string
-                            print 'Wrote path to log-file'
-                            c = conn.cursor()
-                            c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(URI1,URI2))
-                            if len(c.fetchall()) > 0:
-                                print "BEST VER Path already exists!"
-                            else:
-                                print "BEST VER Inserting path!"
-                                c.execute('insert into thesis values (?,?,?,?)',(URI1,URI2,len(path),str(path)))
-                                conn.commit()
-                            c.close()
-                            findFlips(path,URI1,URI2)
-                            return len(path)
-
-                    # No target node found: enqueue the node (if its not visited + not one of the ignored nodes)
-                    if node1 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node1 and 'http://www.geneontology.org/formats/oboInOwl#ObsoleteClass' not in node1:
-                        node = node1
-                        visited.append(node)
-                        getNodes(node)
-                        q.enqueue(context)
-                    elif node2 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node2 and 'http://www.geneontology.org/formats/oboInOwl#ObsoleteClass' not in node2:
-                        node = node2
-                        visited.append(node)
-                        getNodes(node)
-                        q.enqueue(context)
-                    else:
-                        i+=1
-                else:
+                if len(curr_path) == 1:
                     # If current path is a single URI, means 1st cycle
                     node = curr_path[0]
                     print "Start node:",node
                     visited.append(node)
                     getNodes(node)
                     q.enqueue(context)
+
+                if len(curr_path) > 1:
+                    node1 = curr_path[i][0]
+                    node2 = curr_path[i][2]
+                    edgeLabel = curr_path[i][1]
+                    # No target node found: add node to visited list and fetch neighbours (if its not visited + not one of the ignored nodes)
+                    if node1 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node1 and 'http://www.geneontology.org/formats/oboInOwl#ObsoleteClass' not in node1:
+                        node = node1
+                        visited.append(node)
+                        getNodes(node)
+                        checkNodes(context,URI1,URI2)
+                        if len(path) > 0:
+                            print "Done"                            
+                            return "Done"
+                        else:
+                            print "No match found..."                            
+                            q.enqueue(context)                        
+                    elif node2 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node2 and 'http://www.geneontology.org/formats/oboInOwl#ObsoleteClass' not in node2:
+                        node = node2
+                        visited.append(node)
+                        getNodes(node)
+                        checkNodes(context,URI1,URI2)
+                        if len(path) > 0:
+                            print "Done"
+                            return "Done"
+                        else:
+                            print "No match found..."
+                            q.enqueue(context)
+
+def checkNodes(context,URI1,URI2):
+    global path,queue
+    print "checking neighbours..."    
+    for i in range(len(context)):
+        for j in range(len(context[i])):
+            if context[i][j] == URI2:
+                queue.append(context)
+                done = True
+                print "queue:",queue
+                print "URI1:",URI1
+                print "URI2:",URI2
+                showPath(queue,URI1,URI2)
+                if done == True:
+                    string = "Found a link! Stored in path. Length:",len(path),"| Visited:",len(visited),"nodes."
+                    log = open('pathfinderlog.txt','a')                            
+                    log.write('"pathlength";"' + str(len(path)) + '"\n')
+                    log.close()
+                    print string
+                    print 'Wrote path to log-file'
+                    c = conn.cursor()
+                    c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(URI1,URI2))
+                    if len(c.fetchall()) > 0:
+                        print "BEST VER Path already exists!"
+                    else:
+                        print "BEST VER Inserting path!"
+                        c.execute('insert into thesis values (?,?,?,?)',(URI1,URI2,len(path),str(path)))
+                        conn.commit()
+                    c.close()
+                    findFlips(path,URI1,URI2)
+                    return path
+        return path
 
 def createGraph(list_of_nodes):
     global path,dicto,pathList,G
@@ -199,18 +215,18 @@ def createGraph(list_of_nodes):
     f.close()    
 
 def pathGraph(path):
-    global dicto,pathList,G
+    global dicto,pathList,G,parent1,parent2
 
     # Add start nodes, add LCS, draw path in yellow
     startNode1=dicto[parent1[0][0]]
     startNode2=dicto[parent2[0][0]]
     LCS=dicto[pathList[0][0]]
     if G.has_node(startNode1) is False:
-        G.add_node(startNode1,attrs=[('color', 'peru')])
+        G.add_node(startNode1,attrs=[('color', 'peru'),('size','2')])
     if G.has_node(startNode2) is False:
-        G.add_node(startNode2,attrs=[('color', 'peru')])
+        G.add_node(startNode2,attrs=[('color', 'peru'),('size','2')])
     if G.has_node(LCS) is False:       
-        G.add_node(LCS,attrs=[('color', 'seagreen2')])
+        G.add_node(LCS,attrs=[('color', 'seagreen2'),('size','2')])
     
     for i in range(len(path)):
         node1=dicto[path[i][0]]

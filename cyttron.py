@@ -18,29 +18,37 @@ logging.root.setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 import cProfile
 import pickle
-
+'''
 dictionary = corpora.Dictionary.load('vsm\\stem\\stem.dict')
 print dictionary
 corpus = corpora.MmCorpus('vsm\\stem\\stemcorpus.mm')
 print corpus
 tfidf = models.TfidfModel.load('vsm\\stem\\stem.tfidf')
 print tfidf
-
-labelFile = open('pickle\\label.pckl','r')
+'''
+labelFile = open('pickle\\label.list','r')
 label = pickle.load(labelFile)
 labelFile.close()
 print "Labels:",len(label)
+
+descFile = open('pickle\\desc.list','r')
+desc = pickle.load(descFile)
+descFile.close()
+print "Descriptions:",len(desc),"\n"
+
+'''
 labelDictFile = open('pickle\\labelDict.pckl','r')
 labelDict = pickle.load(labelDictFile)
 labelDictFile.close()
-descFile = open('pickle\\desc.pckl','r')
-desc = pickle.load(descFile)
-print "Descriptions:",len(desc),"\n"
-descFile.close()
+
 tfidfFile = open('pickle\\tfidf.pckl','r')
 tfidfDesc = pickle.load(tfidfFile)
 tfidfFile.close()
 print "TF-IDF Descriptions:",len(tfidfDesc),"\n"
+'''
+
+labelDict = {}
+descDict = {}
 
 # sparql-lists
 bigList= []
@@ -107,12 +115,37 @@ def getLabels():
         label.append([x["label"]["value"],x["URI"]["value"]])
 
     print "Filled list: label. With:",str(len(label)),"entries"
+    cPickle.dump(label,open('pickle\\label.list','w'))
 
 def fillDict():
     global labelDict,label
     for i in range(len(label)):
         labelDict[label[i][1]] = label[i][0]
     print "Filled dict: labelDict. With:",str(len(labelDict)),"entries"
+
+descDict = {}
+
+def fillDescDict():
+    global descDict,label
+    for i in range(len(desc)):
+        descDict[desc[i][1]] = desc[i][0]
+    print "Filled dict: labelDict. With:",str(len(descDict)),"entries"
+
+def appendDescs():
+    global label, descDict
+    for i in range(len(label)):
+        if label[i][1] in descDict:
+            label[i].append(descDict[label[i][1]])
+
+def writeList():
+    for i in range(len(label)):
+	name = label[i][0]
+	uri = label[i][1]
+	if len(label[i]) > 2:
+	    desc = label[i][2]
+            listFile.write("<a href=" + uri + ">" + name + "</a> " + "<a title=" + desc + ">*</a>")
+	else:
+            listFile.write("<a href=" + uri + ">" + name + "</a>")
 
 #======================================================#
 # Fill a list of Desc:URI values (Cyttron_DB)          #
@@ -142,6 +175,25 @@ def getDescs():
 
     print "Round One. filled list: desc. With:",str(len(desc)),"entries"
 
+
+    sparql.setQuery("""
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        PREFIX newobo:<http://purl.obolibrary.org/obo/>
+        
+        SELECT ?URI ?desc
+        WHERE {
+            ?URI a owl:Class .
+            ?URI newobo:IAO_0000115 ?desc .
+        }
+    """)
+    
+    results = sparql.query().convert()
+    for x in results["results"]["bindings"]:
+        desc.append([x["desc"]["value"],x["URI"]["value"]])
+
+    print "Round Two (MPATH). filled list: desc. With:",str(len(desc)),"entries"
+
     # NCI
     sparql.setQuery("""
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
@@ -161,7 +213,8 @@ def getDescs():
         cleanDesc = p.sub('',x["def"]["value"])
         desc.append((cleanDesc,x["URI"]["value"]))
 
-    print "filled lists: desc. With:",str(len(desc)),"entries"
+    print "Round Three. Filled lists: desc. With:",str(len(desc)),"entries"
+    cPickle.dump(label,open('pickle\\desc.list','w'))
 
 #======================================================#
 # Scan a string for occurring ontology-words           #
