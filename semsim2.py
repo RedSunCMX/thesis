@@ -7,7 +7,6 @@ from nltk.corpus import stopwords, wordnet
 from nltk import word_tokenize, pos_tag, WordPunctTokenizer
 
 conn = sqlite3.connect('db/sem_web.db')
-
 GR = digraph()
 context = []
 queue = []

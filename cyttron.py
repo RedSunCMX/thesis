@@ -13,19 +13,28 @@ from BeautifulSoup import BeautifulSoup
 from gensim import corpora, models, similarities
 import os
 from lxml import etree
-import logging
-logging.root.setLevel(logging.INFO)
-logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+#import logging
+#logging.root.setLevel(logging.INFO)
+#logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 import cProfile
 import pickle
-'''
-dictionary = corpora.Dictionary.load('vsm\\stem\\stem.dict')
+
+labelDict = {}
+descDict = {}
+
+stopset = set(stopwords.words('english'))
+stopset.add('http')
+stopset.add('www')
+
+dictionary = corpora.Dictionary.load('newdict.dict')
 print dictionary
-corpus = corpora.MmCorpus('vsm\\stem\\stemcorpus.mm')
+corpus = corpora.MmCorpus('newcorpus.mm')
 print corpus
-tfidf = models.TfidfModel.load('vsm\\stem\\stem.tfidf')
+tfidf = models.TfidfModel.load('newtfidf.tfidf')
 print tfidf
-'''
+
+index = similarities.Similarity.load('newindex.index')
+
 labelFile = open('pickle\\label.list','r')
 label = pickle.load(labelFile)
 labelFile.close()
@@ -36,7 +45,6 @@ desc = pickle.load(descFile)
 descFile.close()
 print "Descriptions:",len(desc),"\n"
 
-'''
 labelDictFile = open('pickle\\labelDict.pckl','r')
 labelDict = pickle.load(labelDictFile)
 labelDictFile.close()
@@ -45,15 +53,11 @@ tfidfFile = open('pickle\\tfidf.pckl','r')
 tfidfDesc = pickle.load(tfidfFile)
 tfidfFile.close()
 print "TF-IDF Descriptions:",len(tfidfDesc),"\n"
-'''
-
-labelDict = {}
-descDict = {}
 
 # sparql-lists
 bigList= []
 foundLabel= []
-foundDesc= []
+foundDesc=[]
 URI= []
 corpuslist=[]
 simList=[]
@@ -89,6 +93,19 @@ pub=[]
 group=[]
 priv=[]
 
+nodes=[]
+
+def get(string):
+    global foundLabel,foundDesc,nodes
+    foundLabel=[]
+    wordMatch(string)
+    foundDesc=[]
+    descMatch(string)
+    nodes = [foundLabel,foundDesc]
+    print "found concepts:"
+    print len(nodes[0]),"literals"
+    print len(nodes[1]),"non-literals"
+
 #======================================================#
 # Fill a list of Label:URI values (Cyttron_DB)         #
 #======================================================#
@@ -123,6 +140,14 @@ def fillDict():
         labelDict[label[i][1]] = label[i][0]
     print "Filled dict: labelDict. With:",str(len(labelDict)),"entries"
 
+revDict = {}
+
+def revDict():
+    global revDict,label
+    for i in range(len(label)):
+        labelDict[label[i][0]] = label[i][1]
+    print "Filled dict: labelDict. With:",str(len(revDict)),"entries"
+
 descDict = {}
 
 def fillDescDict():
@@ -139,12 +164,12 @@ def appendDescs():
 
 def writeList():
     for i in range(len(label)):
-	name = label[i][0]
-	uri = label[i][1]
-	if len(label[i]) > 2:
-	    desc = label[i][2]
+        name = label[i][0]
+        uri = label[i][1]
+        if len(label[i]) > 2:
+            desc = label[i][2]
             listFile.write("<a href=" + uri + ">" + name + "</a> " + "<a title=" + desc + ">*</a>")
-	else:
+        else:
             listFile.write("<a href=" + uri + ">" + name + "</a>")
 
 #======================================================#
@@ -214,23 +239,25 @@ def getDescs():
         desc.append((cleanDesc,x["URI"]["value"]))
 
     print "Round Three. Filled lists: desc. With:",str(len(desc)),"entries"
-    cPickle.dump(label,open('pickle\\desc.list','w'))
+    cPickle.dump(desc,open('pickle\\desc.list','w'))
 
 #======================================================#
 # Scan a string for occurring ontology-words           #
 #======================================================#
 def wordMatch(string):
     # wordMatch with regexp word boundary
+    total = 0
     global label,foundLabel,f,labelDict
     foundLabel=[]
     foundTotal=[]
     foundUnique=[]
     sortFreq=[]
     # disable for cy:
-    # string = string.encode('utf-8')
+    string = string.encode('utf-8')
     f = open('log\wordMatch.csv','a')
     f.write('"' + string + '";"')
     f.close()
+
     for i in range(len(label)):
         labelString = label[i][0].encode('utf-8')
         currentLabel = labelString.lower()
@@ -254,7 +281,12 @@ def wordMatch(string):
                 ns='ncbi'
             foundLabel.append([countLabel,currentLabel,ns,currentURI])
     foundLabel.sort(reverse=True)
-    print foundLabel
+    for i in range(len(foundLabel)):
+        total += foundLabel[i][0]
+    print total
+    
+    for i in range(len(foundLabel)):
+        foundLabel[i][0] = (float(foundLabel[i][0])*0.1)+0.5
 
     f = open('log\wordMatch.csv','a')
     if len(foundLabel) > 0:
@@ -263,7 +295,43 @@ def wordMatch(string):
     else:
         f.write('0"\n')
     f.close()
+
+def descMatch(doc):
+    global dictionary,desc,labelDict,index,tfidfDesc,foundDesc
+    foundDesc=[]
     
+    # 1 clean string, convert to bow, convert to tfidf
+    cleanString = cleanDoc(doc)
+    bowString = dictionary.doc2bow(cleanString)
+    tfidfString = tfidf[bowString]
+
+    # 2 Load index of the descriptions
+    sims = index[tfidfString]
+    sim = []
+    for i in range(len(sims)):
+        sim.append([round(sims[i],3)+0.5,labelDict[desc[i][1]],desc[i][1]])
+
+    sim = sorted(sim,reverse=True)
+    for i in range(len(sim)):
+        if 'obo/MPATH_' in sim[i][2]:
+            ns = 'mpath'
+        if 'obo/DOID_' in sim[i][2]:
+            ns = 'doid'
+        if 'EVS/Thesaurus' in sim[i][2]:
+            ns = 'nci'
+        if 'http://purl.org/obo/owl/GO' in sim[i][2]:
+            ns='go'
+        if 'obo/EHDA_' in sim[i][2]:
+            ns='ehda'
+        if '/NCBITaxon' in sim[i][2]:
+            ns='ncbi'
+        sim[i] = [sim[i][0],sim[i][1],ns,sim[i][2]]
+
+    for i in range(len(sim)):
+        if sim[i][0]-0.5 > 0.25:
+            foundDesc.append(sim[i])
+
+
 #======================================================#
 # Scan a string, generate syns for each word           #
 # wordMatch syn-string                                 #
@@ -305,10 +373,10 @@ def stemWordNetWordMatch(string):
 
 def cleanDoc(doc):
     # String goes in, list of words comes out
-    stopset = set(stopwords.words('english'))
+    global stopset
     stemmer = nltk.PorterStemmer()
     tokens = WordPunctTokenizer().tokenize(doc)
-    clean = [token.lower() for token in tokens if token.lower() not in stopset and len(token) > 2]
+    clean = [token.lower() for token in tokens if token.lower() not in stopset and len(token) > 1 and token.isalnum() is True]
     final = [stemmer.stem(word) for word in clean]
     return final
 
@@ -325,6 +393,24 @@ def compareDoc(doc1,doc2):
     sim = round(sim,3)*100
     return sim
 
+def descCompare(string):
+    global desc
+    flups = []
+    for i in range(len(desc)):
+        compareDoc(string,desc[i][0])
+        flups.append(sim)
+    flups = sorted(flups,reverse=True)
+    print flups[:10]    
+
+def compare(URI1context,URI2context):
+	result1 = compareDoc(str(URI1context[0]),str(URI2context[0]))*1
+	result2 = compareDoc(str(URI1context[0]),str(URI2context[1]))*0.5
+	result3 = compareDoc(str(URI1context[1]),str(URI2context[0]))*0.5
+	result4 = compareDoc(str(URI1context[1]),str(URI2context[1]))*0.25
+	print str(result1)+"/100",str(result2)+"/50",str(result3)+"/50",str(result4)+"/25"
+	final = (result1+result2+result3+result4)/4
+	print str(final)+"% similar"
+
 def vecDesc():
     # Convert desc to TF-IDF
     global desc,tfidfDesc
@@ -332,46 +418,8 @@ def vecDesc():
     cleanDesc = [cleanDoc(d[0]) for d in desc]
     bowDesc = [dictionary.doc2bow(doc) for doc in cleanDesc]
     tfidfDesc = [tfidf[d] for d in bowDesc]
+    pickle.dump(tfidfDesc,open('pickle\\tfidf.pckl','w'))
     print "converted list desc to vectors (tfidf): vecDesc",len(tfidfDesc)
-
-def descMatch(doc):
-    global dictionary,desc,labelDict,index,tfidfDesc
-    
-    # 1 clean string, convert to bow, convert to tfidf
-    cleanString = cleanDoc(doc)
-    bowString = dictionary.doc2bow(cleanString)
-    tfidfString = tfidf[bowString]
-
-    index = similarities.Similarity('index\\s_',tfidfDesc,num_features=len(dictionary))
-
-    # 2 Load index of the descriptions
-    sims = index[tfidfString]
-    sim = []
-    for i in range(len(sims)):
-        sim.append((round(sims[i],3),desc[i][1]))
-
-    sim = sorted(sim,reverse=True)
-    print sim[:10]
-    fd = open('log\descMatch.csv','a')
-    fd.write('"' + doc + '";"')
-    sim2=[]
-    for i in range(len(sim[:10])):
-        if 'obo/MPATH_' in sim[i][1]:
-            ns = 'mpath'
-        if 'obo/DOID_' in sim[i][1]:
-            ns = 'doid'
-        if 'EVS/Thesaurus' in sim[i][1]:
-            ns = 'nci'
-        if 'http://purl.org/obo/owl/GO' in sim[i][1]:
-            ns='go'
-        if 'obo/EHDA_' in sim[i][1]:
-            ns='ehda'
-        if '/NCBITaxon' in sim[i][1]:
-            ns='ncbi'
-        sim2.append(str(ns) + ":" + str(labelDict[sim[i][1]]) + " (" + str(sim[i][0]) + ")")
-    print ', '.join(sim2)
-    fd.write(', '.join(sim2) + '"\n')
-    fd.close()
 
 #======================================================#
 # Generate syns from string, gensim similarity         #
@@ -708,17 +756,23 @@ def buildCorpus():
     directory = "E:\\articles\\articles\\"
     files = os.listdir("E:\\articles\\articles\\")
     for i in range(len(files)):
+        doclist = []
         currentFile = directory + str(files[i])
         doc = etree.parse(currentFile)
         r = doc.xpath('/art/bdy')
         bdy = r[0]
-        results = [ unicode(child.text) for child in bdy.iterdescendants() if child.tag == 'p' and child.text is not None and child.text != '(To access the full article, please see PDF)' and child.text != '"To access the full article, please see PDF"']
-        temp = '. '.join(results)
-        if len(temp) > 0:
-            print files[i]
-            clean = ' '.join(cleanDoc(temp))
+        for x in bdy:
+            p = x.itertext()
+            for j in p:
+                if j is not None and 'MathType@' not in j:
+                    result = cleanDoc(j)
+                    if len(result) > 1:    
+                        doclist.append(' '.join(result))
+        clean = ' '.join(doclist)
+        if len(clean) > 1500:
+            print str(i)+":",files[i]
             corpustxt = open('corpus.txt','a')
-            corpustxt.write('"'+clean.encode('utf-8')+'"\n')
+            corpustxt.write('"' + clean.encode('utf-8') + '"\n')
             corpustxt.close()
     print 'Finished'    
 
