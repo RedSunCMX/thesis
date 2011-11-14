@@ -286,7 +286,8 @@ def wordMatch(string):
     print total
     
     for i in range(len(foundLabel)):
-        foundLabel[i][0] = (float(foundLabel[i][0])*0.1)+0.5
+        print foundLabel[i][0]
+        foundLabel[i][0] = (float(foundLabel[i][0])*0.2)+0.5
 
     f = open('log\wordMatch.csv','a')
     if len(foundLabel) > 0:
