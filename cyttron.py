@@ -13,11 +13,12 @@ from BeautifulSoup import BeautifulSoup
 from gensim import corpora, models, similarities
 import os
 from lxml import etree
-#import logging
-#logging.root.setLevel(logging.INFO)
-#logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+import logging
+logging.root.setLevel(logging.INFO)
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 import cProfile
 import pickle
+import cPickle
 
 labelDict = {}
 descDict = {}
@@ -28,12 +29,12 @@ stopset.add('www')
 
 dictionary = corpora.Dictionary.load('newdict.dict')
 print dictionary
-corpus = corpora.MmCorpus('newcorpus.mm')
+corpus = corpora.MmCorpus('stemcorpus.mm')
 print corpus
-tfidf = models.TfidfModel.load('newtfidf.tfidf')
+tfidf = models.TfidfModel.load('stemtfidf.model')
 print tfidf
 
-index = similarities.Similarity.load('newindex.index')
+index = similarities.Similarity.load('stemindex.index')
 
 labelFile = open('pickle\\label.list','r')
 label = pickle.load(labelFile)
@@ -75,7 +76,7 @@ pathList = []
 #teststring
 string = "Since AD is associated with a decrease in memory function and the hippocampus might play a role in memory function, researchers focussed on the degeneration of the hippocampus. Bilateral hippocamal atrophy is found in the brains of Alzheimer patients9. Reduction of the hippocampus for diagnosing is measured in two different ways. By using volumetry of the hippocampus itself or by using volumetry of the AHC (amygdale hippocampal complex). Volumetric studies of the hippocampus showed a reduction of 25 -39% 10,11,12. When measuring relative size in relation to the total cranial volume even a bigger reduction is found of 45%10. Yearly measurements of hippocampal volumes in Alzheimer patients showed a 3.98 /-1.92% decrease per year (p < 0.001)6. Patients with severe AD disease show higher atrophy rates compared to early or mild AD10,11. Correlations are found between hippocampal atrophy and severity of dementia, age 11and sex. Because a correlation is found between age and hippocampal atrophy, volumetric changes should be correct for age and sex. For clinical diagnoses it still remains uncertain whether volumetric measurements of the hippocampus alone is the most accurate way, some studies imply so 12. For diagnosing AD by hippocampal volume measurements the sensitivity varies between 77% and 95% and a specificity of 71-92% 9, 11-14. The sensitivity and specificity varies due the variance of patients and controls used. Patients varies in severity of disease and controls in these studies included FTP, MCI or non-alzheimer elderly. Other studies found that diagnosis based on volumetric changes are comparable for the hippocampus and ERC, but due the more easier use and less variability of hippocampal volumetry, the hippocampus is more feasible for diagnosis 13, 15.  Other studies found that combinations of different volumetric measurements with parahippocampal cortex, ERC14or amygdale (see AHC)  are indeed needed for a more accurate diagnosis of AD patients. AD has some similar atrophic regions compared to Mild Cognitive Impairment (MCI), therefore volumetry of the ERC in combination with hippocampal volumetry can give a more accurate diagnosis of AD 14. Total intracranial volume (TIV) and temporal horn indices (THI:  ratio of THV to lateral ventricular volume) can be used as surrogate marker for volume loss of hippocampal formation. A negative correlation is found between THI and THV and the declarative reminding test 16. Some studies indicate that the accuracy of AD diagnosis increases by volumetry of amygdala-hippocampal complex (AHC) compared to only volumetric measurements of the hippocampus 10"
 repo="cyttron"
-endpoint="http://dvdgrs-900:8080/openrdf-sesame/repositories/" + repo
+endpoint="http://localhost:8080/openrdf-sesame/repositories/" + repo
 
 sparql = SPARQLWrapper(endpoint)
 
@@ -122,8 +123,8 @@ def getLabels():
 
         SELECT ?URI ?label
         WHERE {
+            ?URI a owl:Class .        
             ?URI rdfs:label ?label .
-            ?URI a owl:Class .
             }
     """)
     
@@ -132,7 +133,7 @@ def getLabels():
         label.append([x["label"]["value"],x["URI"]["value"]])
 
     print "Filled list: label. With:",str(len(label)),"entries"
-    cPickle.dump(label,open('pickle\\label.list','w'))
+    #cPickle.dump(label,open('pickle\\label.list','w'))
 
 def fillDict():
     global labelDict,label
@@ -180,7 +181,7 @@ def getDescs():
     sparql = SPARQLWrapper(endpoint)
     sparql.addCustomParameter("infer","false")
     sparql.setReturnFormat(JSON)
-    # MPaTH
+    # MPATH
     sparql.setQuery("""
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
@@ -199,8 +200,7 @@ def getDescs():
         desc.append([x["desc"]["value"],x["URI"]["value"]])
 
     print "Round One. filled list: desc. With:",str(len(desc)),"entries"
-
-
+    # DOID
     sparql.setQuery("""
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
@@ -217,7 +217,7 @@ def getDescs():
     for x in results["results"]["bindings"]:
         desc.append([x["desc"]["value"],x["URI"]["value"]])
 
-    print "Round Two (MPATH). filled list: desc. With:",str(len(desc)),"entries"
+    print "Round Two (DOID). filled list: desc. With:",str(len(desc)),"entries"
 
     # NCI
     sparql.setQuery("""

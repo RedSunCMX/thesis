@@ -6,6 +6,7 @@ import sqlite3
 from gensim import corpora, models, similarities
 from nltk.corpus import stopwords, wordnet
 from nltk import word_tokenize, pos_tag, WordPunctTokenizer
+import os
 
 cyttron.fillDict()
 dicto = cyttron.labelDict
@@ -18,13 +19,17 @@ iup = 0
 #contextURI = 'file://mpath.owl'
 conn = sqlite3.connect('db/paths.db')
 conn2 = sqlite3.connect('db/nodes.db')
-endpoint = 'http://dvdgrs-900:8080/openrdf-sesame/repositories/cyttron'
+endpoint = 'http://localhost:8080/openrdf-sesame/repositories/cyttron'
 LCS = []
 #contextURI = 'http://dbpedia.org'
 #endpoint = 'http://dbpedia.org/sparql'
 #conn = sqlite3.connect('db/dbp.db')
 #conn2 = sqlite3.connect('db/dbpnodes.db')
 done = False
+
+dicto[u'http://www.w3.org/2000/01/rdf-schema#subClassOf'] = 'subclass of'
+dicto[u'http://purl.org/obo/owl/obo#goslim_pir'] = "#goslim_pir"
+dicto[u'http://www.geneontology.org/formats/oboInOwl#inSubset'] = "in subset"
 
 URIx = 'http://purl.obolibrary.org/obo/MPATH_12'
 URIy = 'http://purl.obolibrary.org/obo/MPATH_10'
@@ -54,14 +59,13 @@ class MyQUEUE:
         return result
 
 def SemSim(URI1,URI2):
-    global queue,visited,done,log,path    
+    global queue,visited,done,log,path
     q = MyQUEUE()
     
     # Sort list so node1-node2 == node2-node1
     lijstje=[URI1,URI2]
     URI1 = sorted(lijstje)[0]
     URI2 = sorted(lijstje)[1]
-    print "\nTrying:",URI1,URI2
 
     log = open('pathfinderlog.txt','a')                            
     log.write('"node1";"' + str(URI1) + '"\n')
@@ -99,7 +103,7 @@ def SemSim(URI1,URI2):
             curr_path = q.dequeue()
             queue.append(curr_path)
             for i in range(len(curr_path)):
-                if len(curr_path) == 1:
+                if len(curr_path) == 1 and type(curr_path) is not list:
                     # If current path is a single URI, means 1st cycle
                     node = curr_path[0]
                     print "Start node:",node
@@ -118,10 +122,9 @@ def SemSim(URI1,URI2):
                         getNodes(node)
                         checkNodes(context,URI1,URI2)
                         if len(path) > 0:
-                            print "Done"                            
                             return "Done"
                         else:
-                            print "No match found..."                            
+                            # print "No match found..."                            
                             q.enqueue(context)                        
                     elif node2 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node2 and 'http://www.geneontology.org/formats/oboInOwl#ObsoleteClass' not in node2:
                         node = node2
@@ -129,16 +132,16 @@ def SemSim(URI1,URI2):
                         getNodes(node)
                         checkNodes(context,URI1,URI2)
                         if len(path) > 0:
-                            print "Done"
+                            print path
                             return "Done"
                         else:
-                            print "No match found..."
+                            # print "No match found..."
                             q.enqueue(context)
 
 def checkNodes(context,URI1,URI2):
     global path,queue
     done = False
-    print "checking neighbours..."    
+    # print "checking neighbours..."    
     for i in range(len(context)):
         node1 = context[i][0]
         node2 = context[i][2]
@@ -222,7 +225,7 @@ def createGraph(list_of_nodes):
     f.close()    
 
 def drawGraph(nodes):
-    global path,dicto,pathList,G,LCS
+    global path,dicto,pathList,G,LCS,contextURI
 
     # Default settings
     G = digraph()
@@ -246,6 +249,8 @@ def drawGraph(nodes):
                     color = 'salmon'
                 if nodeList[j][2] == 'go':
                     color = 'orange'
+                if nodeList[j][2] == 'mpath':
+                    color = 'red'                    
                 if nodeList[j][2] == currentNS:
                     node1 = str(nodeList[j][1])
                     node2 = str(nodeList[i][1])
@@ -303,11 +308,76 @@ def drawGraph(nodes):
                     if G.has_edge((prevNode,node)) is False:
                         G.add_edge((prevNode,node),label="subClassOf")
 
+    def drawBFS(nodeList):
+        global contextURI,path
+        nciNodes=[]
+        doidNodes=[]
+        ncbiNodes=[]
+        goNodes=[]
+        allNodes = nodeList[0] + nodeList[1]
+        for i in range(len(allNodes)):
+            if allNodes[i][2] == 'nci':
+                nciNodes.append(allNodes[i])
+            if allNodes[i][2] == 'doid':
+                doidNodes.append(allNodes[i])
+            if allNodes[i][2] == 'ncbi':
+                ncbiNodes.append(allNodes[i])
+            if allNodes[i][2] == 'go':
+                goNodes.append(allNodes[i])   
+                
+        print len(nciNodes),"nci nodes"
+        print len(doidNodes),'doid nodes'
+        print len(ncbiNodes),'ncbi nodes'
+        print len(goNodes),'go nodes'
+        allNodes = [doidNodes,goNodes]
+
+        for i in range(len(allNodes)):
+            current = allNodes[i]
+            if len(current) > 0:
+                for j in range(len(current)):
+                    NS = current[j][2]
+                    if NS == 'ehda':
+                        contextURI = "file://ehda.owl"
+                        color = 'seagreen2'
+                    if NS == 'doid':
+                        contextURI = "file://doid.owl"
+                        color = 'salmon'
+                    if NS == 'nci':
+                        contextURI = "file://nci.owl"
+                        color = 'lightsalmon'
+                    if NS == 'ncbi':
+                        contextURI = "file://ncbi.owl"
+                        color = 'pink'
+                    if NS == 'go':
+                        contextURI = "file://go.owl"
+                        color = 'orange'
+                    if NS == 'mpath':
+                        contextURI = "file://go.owl"
+                        color = 'red'                        
+                    currentURI = current[j][3]
+                    for k in range(j+1,len(current)):
+                        otherURI = current[k][3]
+                        if current[j][2] == current[k][2]:
+                            path=[]
+                            SemSim(otherURI,currentURI)
+                            for i in range(len(path)):
+                                node1=str(dicto[path[i][0]])
+                                edge=str(dicto[path[i][1]])
+                                node2=str(dicto[path[i][2]])
+                                if G.has_node(node1) is False:
+                                    G.add_node(node1,attrs=[('color', 'grey')])
+                                if G.has_node(node2) is False:
+                                    G.add_node(node2,attrs=[('color', 'grey')])
+                                if G.has_edge((node1,node2)) is False:                    
+                                    G.add_edge((node1,node2),label=str(edge).rsplit('/')[-1],attrs=[('color', color)])
+                                    
     words = nodes[0]
     nonLit = nodes[1]
-    
+
     drawStart(words,1)
     drawStart(nonLit,0)
+    drawBFS(nodes)
+
     drawLCS(words)
     drawLCS(nonLit)    
     drawParents(words)
@@ -318,6 +388,8 @@ def drawGraph(nodes):
     f = open('path.gv','w')
     f.write(dot)
     f.close()
+    os.system("gv\\bin\\dot.exe -Tpng -ograph.png path.gv")
+    print "Created graph.png"
 
 def relabel(text):
     # from URI to label
@@ -393,53 +465,38 @@ def getNodes(URI):
     result = c.fetchall()
     c.close()    
     if len(result) > 0:
-        print "Node in DB"
+        #print "Node in DB"
         context = eval(result[0][1])
         c.close()
     else:
         sparql = SPARQLWrapper(endpoint)
-        print "Finding neighbours of:",URI.rsplit('/')[-1],"-",
+        print URI.rsplit('/')[-1],"has",
         
         #Direct
-        querystring="SELECT DISTINCT ?p ?s FROM <" + str(contextURI) + "> WHERE { <" + str(URI) + "> ?p ?s . FILTER ( isURI(?s )) . }"
+        querystring=""" SELECT DISTINCT ?p ?s FROM <""" + str(contextURI) + """> WHERE {
+            { <""" + str(URI) + """> ?p ?s . FILTER ( isURI(?s )) . }
+            }"""
         sparql.setReturnFormat(JSON)
-        sparql.addCustomParameter("infer","false")
         sparql.setQuery(querystring)
         results = sparql.query().convert()
         for x in results["results"]["bindings"]:
             if 'http://www.w3.org/' not in x['s']['value']:            
                 context.append([URI,x["p"]["value"],x["s"]["value"]])
-        querystring="SELECT DISTINCT ?o ?p FROM <" + str(contextURI) + "> WHERE { ?o ?p <" + str(URI) + "> . FILTER (isURI(?o )) . }"
+
+        querystring=""" SELECT DISTINCT ?o ?p FROM <""" + str(contextURI) + """> WHERE {
+        { ?o ?p <""" + str(URI) + """> . FILTER (isURI(?o )) . }
+        }"""
         sparql.setQuery(querystring)
         results = sparql.query().convert()
         for x in results["results"]["bindings"]:
             if 'http://www.w3.org/' not in x['o']['value']:            
                 context.append([x["o"]["value"],x["p"]["value"],URI])
-        '''
-        #BNODE
-        querystring="SELECT DISTINCT ?s2 ?p WHERE { <" + str(URI) + "> ?p ?s . ?s ?x ?s2 . FILTER (isBlank(?s )) . FILTER (isURI(?s2)) .}"
-        sparql.setReturnFormat(JSON)
-        sparql.addCustomParameter("infer","false")
-        sparql.setQuery(querystring)
-        results = sparql.query().convert()
-        for x in results["results"]["bindings"]:
-            if 'http://www.w3.org/' not in x['s2']['value']:
-                context.append([URI,x["p"]["value"],x["s2"]["value"]])
-        querystring="SELECT DISTINCT ?s2 ?p WHERE { ?o ?p <" + str(URI) + "> . ?s2 ?x ?o . FILTER (isBlank(?o )) . FILTER (isURI(?s2)) .}"
-        sparql.setReturnFormat(JSON)
-        sparql.addCustomParameter("infer","false")
-        sparql.setQuery(querystring)
-        results = sparql.query().convert()
-        for x in results["results"]["bindings"]:
-            if 'http://www.w3.org/' not in x['s2']['value']:            
-                context.append([x["s2"]["value"],x["p"]["value"],URI])
-        '''
-        print len(context),"neighbours"
+                
+        print len(context),"neighbours (to db)"
         c = conn2.cursor()
         t = (URI,str(context))
         c.execute('insert into nodes values (?,?)', t)
         conn2.commit()
-        print "added",URI,"to db"
         c.close()
     return context
 
