@@ -34,7 +34,7 @@ print corpus
 tfidf = models.TfidfModel.load('stemtfidf.model')
 print tfidf
 
-index = similarities.Similarity.load('stemindex.index')
+index = similarities.Similarity.load('stem.index')
 
 labelFile = open('pickle\\label.list','r')
 label = pickle.load(labelFile)
@@ -46,7 +46,7 @@ desc = pickle.load(descFile)
 descFile.close()
 print "Descriptions:",len(desc),"\n"
 
-labelDictFile = open('pickle\\labelDict.pckl','r')
+labelDictFile = open('pickle\\labelDict.pickle','r')
 labelDict = pickle.load(labelDictFile)
 labelDictFile.close()
 
@@ -118,7 +118,6 @@ def getLabels():
     sparql.setReturnFormat(JSON)
     sparql.setQuery("""
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
 
         SELECT ?URI ?label
@@ -133,10 +132,11 @@ def getLabels():
         label.append([x["label"]["value"],x["URI"]["value"]])
 
     print "Filled list: label. With:",str(len(label)),"entries"
-    #cPickle.dump(label,open('pickle\\label.list','w'))
+    cPickle.dump(label,open('pickle\\label.list','w'))
 
 def fillDict():
     global labelDict,label
+    labelDict = {}
     for i in range(len(label)):
         labelDict[label[i][1]] = label[i][0]
     print "Filled dict: labelDict. With:",str(len(labelDict)),"entries"

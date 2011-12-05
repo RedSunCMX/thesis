@@ -30,6 +30,9 @@ done = False
 dicto[u'http://www.w3.org/2000/01/rdf-schema#subClassOf'] = 'subclass of'
 dicto[u'http://purl.org/obo/owl/obo#goslim_pir'] = "#goslim_pir"
 dicto[u'http://www.geneontology.org/formats/oboInOwl#inSubset'] = "in subset"
+dicto[u'http://purl.org/obo/owl/obo#goslim_yeast'] = '#goslim_yeast'
+dicto[u'http://purl.org/obo/owl/obo#goslim_generic'] = '#goslim_generic'
+dicto[u'http://purl.org/obo/owl/obo#gosubset_prok'] = '#gosubset_prok'
 
 URIx = 'http://purl.obolibrary.org/obo/MPATH_12'
 URIy = 'http://purl.obolibrary.org/obo/MPATH_10'
@@ -103,7 +106,7 @@ def SemSim(URI1,URI2):
             curr_path = q.dequeue()
             queue.append(curr_path)
             for i in range(len(curr_path)):
-                if len(curr_path) == 1 and type(curr_path) is not list:
+                if len(curr_path) == 1 and len(curr_path[0])>3:
                     # If current path is a single URI, means 1st cycle
                     node = curr_path[0]
                     print "Start node:",node
@@ -111,7 +114,7 @@ def SemSim(URI1,URI2):
                     getNodes(node)
                     q.enqueue(context)
 
-                if len(curr_path) > 1:
+                else:
                     node1 = curr_path[i][0]
                     node2 = curr_path[i][2]
                     edgeLabel = curr_path[i][1]
@@ -122,6 +125,7 @@ def SemSim(URI1,URI2):
                         getNodes(node)
                         checkNodes(context,URI1,URI2)
                         if len(path) > 0:
+                            print path
                             return "Done"
                         else:
                             # print "No match found..."                            
@@ -137,6 +141,11 @@ def SemSim(URI1,URI2):
                         else:
                             # print "No match found..."
                             q.enqueue(context)
+
+        print 'empty queue. Inserting path=0'
+        c.execute('insert into thesis values (?,?,?,?)',(URI1,URI2,0,'[]'))
+        conn.commit()
+        c.close()
 
 def checkNodes(context,URI1,URI2):
     global path,queue
@@ -306,7 +315,7 @@ def drawGraph(nodes):
                         G.add_node(node,[("color","grey"),("width","0.3"),("height","0.3")])
                         print "\tdrawParents - added to Graph:",node
                     if G.has_edge((prevNode,node)) is False:
-                        G.add_edge((prevNode,node),label="subClassOf")
+                        G.add_edge((prevNode,node),label="is a")
 
     def drawBFS(nodeList):
         global contextURI,path
@@ -314,6 +323,7 @@ def drawGraph(nodes):
         doidNodes=[]
         ncbiNodes=[]
         goNodes=[]
+        ehdaNodes=[]
         allNodes = nodeList[0] + nodeList[1]
         for i in range(len(allNodes)):
             if allNodes[i][2] == 'nci':
@@ -323,13 +333,16 @@ def drawGraph(nodes):
             if allNodes[i][2] == 'ncbi':
                 ncbiNodes.append(allNodes[i])
             if allNodes[i][2] == 'go':
-                goNodes.append(allNodes[i])   
+                goNodes.append(allNodes[i])
+            if allNodes[i][2] == 'ehda':
+                ehdaNodes.append(allNodes[i])
                 
         print len(nciNodes),"nci nodes"
         print len(doidNodes),'doid nodes'
         print len(ncbiNodes),'ncbi nodes'
         print len(goNodes),'go nodes'
-        allNodes = [doidNodes,goNodes]
+        print len(ehdaNodes),'ehda nodes'
+        allNodes = [nciNodes,doidNodes,ncbiNodes,goNodes,ehdaNodes]
 
         for i in range(len(allNodes)):
             current = allNodes[i]
@@ -352,24 +365,32 @@ def drawGraph(nodes):
                         contextURI = "file://go.owl"
                         color = 'orange'
                     if NS == 'mpath':
-                        contextURI = "file://go.owl"
+                        contextURI = "file://mpath.owl"
                         color = 'red'                        
                     currentURI = current[j][3]
                     for k in range(j+1,len(current)):
                         otherURI = current[k][3]
                         if current[j][2] == current[k][2]:
-                            path=[]
-                            SemSim(otherURI,currentURI)
-                            for i in range(len(path)):
-                                node1=str(dicto[path[i][0]])
-                                edge=str(dicto[path[i][1]])
-                                node2=str(dicto[path[i][2]])
-                                if G.has_node(node1) is False:
-                                    G.add_node(node1,attrs=[('color', 'grey')])
-                                if G.has_node(node2) is False:
-                                    G.add_node(node2,attrs=[('color', 'grey')])
-                                if G.has_edge((node1,node2)) is False:                    
-                                    G.add_edge((node1,node2),label=str(edge).rsplit('/')[-1],attrs=[('color', color)])
+                            findParents([[otherURI]])
+                            parent1 = pathList[-1][-1][-1]
+                            findParents([[currentURI]])
+                            parent2 = pathList[-1][-1][-1]
+                            print "Parents:",parent1,parent2
+                            if parent1 == parent2:
+                                path=[]
+                                print "\t\ttrying",otherURI,currentURI
+                                SemSim(otherURI,currentURI)
+                                print "Finished.",len(path)                                
+                                for i in range(len(path)):
+                                    node1=str(dicto[path[i][0]])
+                                    edge=str(path[i][1])
+                                    node2=str(dicto[path[i][2]])
+                                    if G.has_node(node1) is False:
+                                        G.add_node(node1,attrs=[('color', 'grey')])
+                                    if G.has_node(node2) is False:
+                                        G.add_node(node2,attrs=[('color', 'grey')])
+                                    if G.has_edge((node1,node2)) is False:                    
+                                        G.add_edge((node1,node2),label=str(edge).rsplit('/')[-1],attrs=[('color', color)])
                                     
     words = nodes[0]
     nonLit = nodes[1]
@@ -436,7 +457,6 @@ def findFlips(path,start,target):
         
         left = path[i][0]
         right = path[i][2]
-        print left,right
 
         if left == prevRight:
             flips += "U"
@@ -459,46 +479,95 @@ def findFlips(path,start,target):
 
 def getNodes(URI):
     global context,contextURI
+
+    if 'obo/MPATH_' in URI:
+        ns = 'mpath'
+    if 'obo/DOID_' in URI:
+        ns = 'doid'
+    if 'EVS/Thesaurus' in URI:
+        ns = 'nci'
+    if 'http://purl.org/obo/owl/GO' in URI:
+        ns='go'
+    if 'obo/EHDA_' in URI:
+        ns='ehda'
+    if '/NCBITaxon' in URI:
+        ns='ncbi'
+
     context=[]
     c = conn2.cursor()
-    c.execute('SELECT * FROM nodes WHERE URI=?', (URI,))
+    c.execute('SELECT * FROM ' + str(ns) +' WHERE URI=?', (URI,))
     result = c.fetchall()
-    c.close()    
+    c.close()
+    
     if len(result) > 0:
-        #print "Node in DB"
         context = eval(result[0][1])
         c.close()
+        return context
     else:
         sparql = SPARQLWrapper(endpoint)
-        print URI.rsplit('/')[-1],"has",
-        
-        #Direct
-        querystring=""" SELECT DISTINCT ?p ?s FROM <""" + str(contextURI) + """> WHERE {
-            { <""" + str(URI) + """> ?p ?s . FILTER ( isURI(?s )) . }
-            }"""
         sparql.setReturnFormat(JSON)
-        sparql.setQuery(querystring)
+        print URI.rsplit('/')[-1],"has",
+
+        # URI is_a X
+        querystring="""PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+SELECT ?s FROM <""" + str(contextURI) + """> WHERE { <""" + str(URI) + """> rdfs:subClassOf ?s . FILTER ( isURI(?s )) . }"""
+        sparql.setQuery(querystring)        
         results = sparql.query().convert()
         for x in results["results"]["bindings"]:
-            if 'http://www.w3.org/' not in x['s']['value']:            
-                context.append([URI,x["p"]["value"],x["s"]["value"]])
+            if 'http://www.w3.org/' not in x['s']['value']:
+                context.append([URI,"is a",x["s"]["value"]])
 
-        querystring=""" SELECT DISTINCT ?o ?p FROM <""" + str(contextURI) + """> WHERE {
-        { ?o ?p <""" + str(URI) + """> . FILTER (isURI(?o )) . }
+        if ns == 'go' or ns == 'ehda':
+        # URI part_of X
+            print "trying part_of rel"
+            querystring="""
+            PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+            PREFIX owl:<http://www.w3.org/2002/07/owl#>
+
+            SELECT ?s FROM <""" + str(contextURI) + """> WHERE {
+            <""" + str(URI) + """> rdfs:subClassOf ?b1 . FILTER ( isBLANK(?b1)) .
+            ?b1 owl:someValuesFrom ?s . FILTER ( isURI(?s )) . }"""
+            sparql.setQuery(querystring)
+            results = sparql.query().convert()
+            for x in results["results"]["bindings"]:
+                if 's' in x:
+                    if 'http://www.w3.org/' not in x['s']['value']:            
+                        context.append([URI,"is part of",x["s"]["value"]])                
+
+        # X is_a URI
+        querystring="""PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+        SELECT DISTINCT ?o FROM <""" + str(contextURI) + """> WHERE {
+        { ?o rdfs:subClassOf <""" + str(URI) + """> . FILTER (isURI(?o )) . }
         }"""
         sparql.setQuery(querystring)
         results = sparql.query().convert()
         for x in results["results"]["bindings"]:
             if 'http://www.w3.org/' not in x['o']['value']:            
-                context.append([x["o"]["value"],x["p"]["value"],URI])
+                context.append([x["o"]["value"],'is a',URI])
+
+        if ns == 'go' or ns == 'ehda':
+        # X part_of URI
+            querystring="""
+            PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+            PREFIX owl:<http://www.w3.org/2002/07/owl#>
+            SELECT ?o FROM <""" + str(contextURI) + """> WHERE {
+            ?blank owl:someValuesFrom <""" + str(URI) + """> . FILTER ( isBLANK(?blank)) .
+            ?o rdfs:subClassOf ?blank . FILTER ( isURI(?o )) . }"""
+            sparql.setQuery(querystring)
+            results = sparql.query().convert()        
+            for x in results["results"]["bindings"]:
+                if 's' in x:
+                    if 'http://www.w3.org/' not in x['s']['value']:
+                        context.append([URI,"is part of",x["s"]["value"]])                  
                 
         print len(context),"neighbours (to db)"
         c = conn2.cursor()
         t = (URI,str(context))
-        c.execute('insert into nodes values (?,?)', t)
+        c.execute('insert into ' + str(ns) + ' values (?,?)', t)
         conn2.commit()
         c.close()
     return context
+    
 
 #======================================================#
 # 'shared parents' stuff                               #
@@ -511,10 +580,12 @@ def findLCS(URI1,URI2):
     if LCS[0][0] != 0:
         findParents(LCS)
         log = open('pathfinderlog.txt','a')                            
-        log.write('"LCS depth: ' + str(pathList[0][0]) + '";"' + str(len(pathList)) + '"\n')
+        log.write('"LCS depth:' + str(pathList[0][0]) + '";"' + str(len(pathList)) + '"\n')
         log.close()
     else:
-        print "No LCS"
+        log = open('pathfinderlog.txt','a')                            
+        log.write('"LCS depth:-";"0"\n')
+        log.close()
 
 def findParents(URI):
     # Returns a pathList which includes all parents per hop
