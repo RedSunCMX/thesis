@@ -49,12 +49,12 @@ print "Descriptions:",len(desc),"\n"
 labelDictFile = open('pickle\\labelDict.pickle','r')
 labelDict = pickle.load(labelDictFile)
 labelDictFile.close()
-
+'''
 tfidfFile = open('pickle\\tfidf.pckl','r')
 tfidfDesc = pickle.load(tfidfFile)
 tfidfFile.close()
 print "TF-IDF Descriptions:",len(tfidfDesc),"\n"
-
+'''
 # sparql-lists
 bigList= []
 foundLabel= []
@@ -75,7 +75,7 @@ pathList = []
 
 #teststring
 string = "Since AD is associated with a decrease in memory function and the hippocampus might play a role in memory function, researchers focussed on the degeneration of the hippocampus. Bilateral hippocamal atrophy is found in the brains of Alzheimer patients9. Reduction of the hippocampus for diagnosing is measured in two different ways. By using volumetry of the hippocampus itself or by using volumetry of the AHC (amygdale hippocampal complex). Volumetric studies of the hippocampus showed a reduction of 25 -39% 10,11,12. When measuring relative size in relation to the total cranial volume even a bigger reduction is found of 45%10. Yearly measurements of hippocampal volumes in Alzheimer patients showed a 3.98 /-1.92% decrease per year (p < 0.001)6. Patients with severe AD disease show higher atrophy rates compared to early or mild AD10,11. Correlations are found between hippocampal atrophy and severity of dementia, age 11and sex. Because a correlation is found between age and hippocampal atrophy, volumetric changes should be correct for age and sex. For clinical diagnoses it still remains uncertain whether volumetric measurements of the hippocampus alone is the most accurate way, some studies imply so 12. For diagnosing AD by hippocampal volume measurements the sensitivity varies between 77% and 95% and a specificity of 71-92% 9, 11-14. The sensitivity and specificity varies due the variance of patients and controls used. Patients varies in severity of disease and controls in these studies included FTP, MCI or non-alzheimer elderly. Other studies found that diagnosis based on volumetric changes are comparable for the hippocampus and ERC, but due the more easier use and less variability of hippocampal volumetry, the hippocampus is more feasible for diagnosis 13, 15.  Other studies found that combinations of different volumetric measurements with parahippocampal cortex, ERC14or amygdale (see AHC)  are indeed needed for a more accurate diagnosis of AD patients. AD has some similar atrophic regions compared to Mild Cognitive Impairment (MCI), therefore volumetry of the ERC in combination with hippocampal volumetry can give a more accurate diagnosis of AD 14. Total intracranial volume (TIV) and temporal horn indices (THI:  ratio of THV to lateral ventricular volume) can be used as surrogate marker for volume loss of hippocampal formation. A negative correlation is found between THI and THV and the declarative reminding test 16. Some studies indicate that the accuracy of AD diagnosis increases by volumetry of amygdala-hippocampal complex (AHC) compared to only volumetric measurements of the hippocampus 10"
-repo="cyttron"
+repo="nci"
 endpoint="http://localhost:8080/openrdf-sesame/repositories/" + repo
 
 sparql = SPARQLWrapper(endpoint)
@@ -87,6 +87,7 @@ f.write('"string";"labels"'+ "\n")
 f.close()
 
 fd = open('log\descMatch.csv','w')
+fd.write('"string";"over90";"over75";"best5";"best10";"20percent";"10percent"'+ "\n")
 fd.close()
 
 csvread = csv.reader(open('db\cyttron-db.csv', 'rb'), delimiter=';')
@@ -252,8 +253,6 @@ def wordMatch(string):
     foundTotal=[]
     foundUnique=[]
     sortFreq=[]
-    # disable for cy:
-    string = string.encode('utf-8')
     f = open('log\wordMatch.csv','a')
     f.write('"' + string + '";"')
     f.close()
@@ -267,31 +266,17 @@ def wordMatch(string):
         countLabel = len(c)
         if countLabel > 0:
             currentLabel = labelDict[currentURI]
-            if 'obo/MPATH_' in currentURI:
-                ns = 'mpath'
-            if 'obo/DOID_' in currentURI:
-                ns = 'doid'
-            if 'EVS/Thesaurus' in currentURI:
-                ns = 'nci'
-            if 'http://purl.org/obo/owl/GO' in currentURI:
-                ns='go'
-            if 'obo/EHDA_' in currentURI:
-                ns='ehda'
-            if '/NCBITaxon' in currentURI:
-                ns='ncbi'
-            foundLabel.append([countLabel,currentLabel,ns,currentURI])
+            foundLabel.append([countLabel,currentLabel,currentURI])
     foundLabel.sort(reverse=True)
     for i in range(len(foundLabel)):
         total += foundLabel[i][0]
-    print total
     
     for i in range(len(foundLabel)):
-        print foundLabel[i][0]
         foundLabel[i][0] = (float(foundLabel[i][0])*0.2)+0.5
 
     f = open('log\wordMatch.csv','a')
     if len(foundLabel) > 0:
-        labels = [found[2] + ':' + found[1] for found in foundLabel]
+        labels = [found[1] for found in foundLabel]
         f.write(', '.join(labels) + '"\n')
     else:
         f.write('0"\n')
@@ -299,7 +284,8 @@ def wordMatch(string):
 
 def descMatch(doc):
     global dictionary,desc,labelDict,index,tfidfDesc,foundDesc
-    foundDesc=[]
+    log = open('log\descMatch.csv','a')
+    log.write('"' + doc + '";"')
     
     # 1 clean string, convert to bow, convert to tfidf
     cleanString = cleanDoc(doc)
@@ -313,25 +299,62 @@ def descMatch(doc):
         sim.append([round(sims[i],3)+0.5,labelDict[desc[i][1]],desc[i][1]])
 
     sim = sorted(sim,reverse=True)
-    for i in range(len(sim)):
-        if 'obo/MPATH_' in sim[i][2]:
-            ns = 'mpath'
-        if 'obo/DOID_' in sim[i][2]:
-            ns = 'doid'
-        if 'EVS/Thesaurus' in sim[i][2]:
-            ns = 'nci'
-        if 'http://purl.org/obo/owl/GO' in sim[i][2]:
-            ns='go'
-        if 'obo/EHDA_' in sim[i][2]:
-            ns='ehda'
-        if '/NCBITaxon' in sim[i][2]:
-            ns='ncbi'
-        sim[i] = [sim[i][0],sim[i][1],ns,sim[i][2]]
 
+    found = []
+    for i in range(len(sim)):
+        if sim[i][0]-0.5 > 0.4:
+            found.append(sim[i])
+    #print "over90 (" + str(len(found)) + ")"
+    #print found,"\n"
+    labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
+    log.write(', '.join(labels[:50]))
+    log.write('";"')            
+
+    found = []
     for i in range(len(sim)):
         if sim[i][0]-0.5 > 0.25:
-            foundDesc.append(sim[i])
+            found.append(sim[i])
+    #print "over75 (" + str(len(found)) + ")"
+    #print found,"\n"
+    labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
+    log.write(', '.join(labels[:50]))
+    log.write('";"')
 
+    found = sim[:5]
+    #print "best5 (" + str(len(found)) + ")"
+    #print found,"\n"
+    labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
+    log.write(', '.join(labels[:50]))
+    log.write('";"')
+    
+    found = sim[:10]
+    #print "best10 (" + str(len(found)) + ")"
+    #print found,"\n"
+    labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
+    log.write(', '.join(labels[:50]))
+    log.write('";"')    
+
+    found = []
+    number = sim[0][0]
+    for i in range(len(sim)):
+        if sim[i][0] > (0.8*number):
+            found.append(sim[i])
+    #print "percent20 (" + str(len(found)) + ")"
+    #print found,"\n"
+    labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
+    log.write(', '.join(labels[:50]))
+    log.write('";"')
+
+    found=[]
+    for i in range(len(sim)):
+        if sim[i][0] > (0.9*number):
+            found.append(sim[i])
+    #print "percent10 (" + str(len(found)) + ")"
+    #print found,"\n"
+    labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
+    log.write(', '.join(labels[:50]))
+    log.write('"\n')
+    log.close()    
 
 #======================================================#
 # Scan a string, generate syns for each word           #
@@ -464,7 +487,6 @@ def listDescMatch(lijst):
     for i in range(len(lijst)):
         string = lijst[i]
         descMatch(string)
-        print ""
 
 def listDescWordNetMatch(list):
     fd = open('log\descMatch.csv','w')
@@ -497,7 +519,7 @@ def wikiGet(title):
 
 # Read cyttron csv and create list
 def cyttron(listname):
-    f = csv.reader(open('db\cyttron.csv', 'rb'), delimiter=';')
+    f = csv.reader(open('db\cyttron1.csv', 'rb'), delimiter=';')
     for line in f:
         listname.append(line[0])
     print len(listname)
