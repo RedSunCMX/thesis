@@ -181,56 +181,6 @@ def checkNodes(context,URI1,URI2):
             return path
     return path
 
-def createGraph(list_of_nodes):
-    global path,dicto,pathList,G
-
-    # Default settings
-    G = digraph()
-    G.add_node("graph",[("layout","circo")])
-    G.add_node("node",[("style","filled"),("fontname","Arial"),("fontsize","13"),('fontcolor','white'),('shape','circle')])
-    G.add_node("edge",[("fontname","Arial"),("fontsize","10"),('fontcolor','azure4')])
-
-    # Double for-loop to go through all nodes/connections
-    for i in range(len(list_of_nodes)):
-        currentURI = list_of_nodes[i]        
-        for j in range(i+1,len(list_of_nodes)):
-            otherURI = list_of_nodes[j]
-            SemSim(otherURI,currentURI)
-
-            # plot BFS result
-            for i in range(len(path)):
-                nodeLeft = path[i][0]
-                edgeLabel = path[i][1]
-                nodeRight = path[i][2]
-
-            # plot parent1
-            findParents([[currentURI]])
-            log = open('pathfinderlog.txt','a')                            
-            log.write('"node1 depth: ' + str(pathList[0][0]) + '";"' + str(len(pathList)) + '"\n')
-            log.close()
-            for i in range(1,len(pathList)):
-                prevNode = pathList[i-1][0]
-                node = pathList[i][0]
-
-            # plot parent2
-            findParents([[otherURI]])
-            log = open('pathfinderlog.txt','a')                            
-            log.write('"node2 depth: ' + str(pathList[0][0]) + '";"' + str(len(pathList)) + '"\n')
-            log.close()        
-            for i in range(1,len(pathList)):
-                prevNode = pathList[i-1][0]
-                node = pathList[i][0]
-                    
-            findLCS(currentURI,otherURI)
-            
-            pathGraph(path) 
-
-    # write path to DOT
-    dot = write(G)
-    f = open('path.gv','w')
-    f.write(dot)
-    f.close()    
-
 def drawGraph(nodes):
     global path,dicto,pathList,G,LCS,contextURI
     color = "red"

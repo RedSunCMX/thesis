@@ -19,6 +19,9 @@ logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=lo
 import cProfile
 import pickle
 import cPickle
+import fuzzywuzzy
+from fuzzywuzzy import fuzz
+from xml.dom.minidom import parse, parseString
 
 labelDict = {}
 descDict = {}
@@ -90,7 +93,7 @@ fd = open('log\descMatch.csv','w')
 fd.write('"string";"over90";"over75";"best5";"best10";"20percent";"10percent"'+ "\n")
 fd.close()
 
-csvread = csv.reader(open('db\cyttron-db.csv', 'rb'), delimiter=';')
+csvread = csv.reader(open('db\cyttron-selection.csv', 'rb'), delimiter=';')
 pub=[]
 group=[]
 priv=[]
@@ -131,8 +134,27 @@ def getLabels():
     results = sparql.query().convert()
     for x in results["results"]["bindings"]:
         label.append([x["label"]["value"],x["URI"]["value"]])
+    print "LABEL | Filled list: label. With:",str(len(label)),"entries"
 
-    print "Filled list: label. With:",str(len(label)),"entries"
+    sparql.setQuery("""
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        PREFIX nci:<http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#>
+
+        SELECT ?URI ?syn
+        WHERE {
+            ?URI a owl:Class .
+            ?URI nci:FULL_SYN ?syn .
+        }
+        """)
+
+    results = sparql.query().convert()
+    for x in results["results"]["bindings"]:
+        flups = parseString(x["syn"]["value"])
+        Syn = flups.getElementsByTagName('ncicp:term-name')[0].toxml()
+        cleanSyn = Syn.replace('<ncicp:term-name>','').replace('</ncicp:term-name>','')
+        label.append([cleanSyn,x["URI"]["value"]])
+    print "SYNONYMS | Filled list: label. With:",str(len(label)),"entries"                    
     cPickle.dump(label,open('pickle\\label.list','w'))
 
 def fillDict():
@@ -182,44 +204,6 @@ def getDescs():
     sparql = SPARQLWrapper(endpoint)
     sparql.addCustomParameter("infer","false")
     sparql.setReturnFormat(JSON)
-    # MPATH
-    sparql.setQuery("""
-        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-        PREFIX owl: <http://www.w3.org/2002/07/owl#>
-        PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
-
-        SELECT ?URI ?desc
-        WHERE {
-            ?URI a owl:Class .
-            ?URI oboInOwl:hasDefinition ?bnode .
-            ?bnode rdfs:label ?desc .
-        }
-    """)
-    
-    results = sparql.query().convert()
-    for x in results["results"]["bindings"]:
-        desc.append([x["desc"]["value"],x["URI"]["value"]])
-
-    print "Round One. filled list: desc. With:",str(len(desc)),"entries"
-    # DOID
-    sparql.setQuery("""
-        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-        PREFIX owl: <http://www.w3.org/2002/07/owl#>
-        PREFIX newobo:<http://purl.obolibrary.org/obo/>
-        
-        SELECT ?URI ?desc
-        WHERE {
-            ?URI a owl:Class .
-            ?URI newobo:IAO_0000115 ?desc .
-        }
-    """)
-    
-    results = sparql.query().convert()
-    for x in results["results"]["bindings"]:
-        desc.append([x["desc"]["value"],x["URI"]["value"]])
-
-    print "Round Two (DOID). filled list: desc. With:",str(len(desc)),"entries"
-
     # NCI
     sparql.setQuery("""
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
@@ -239,7 +223,7 @@ def getDescs():
         cleanDesc = p.sub('',x["def"]["value"])
         desc.append((cleanDesc,x["URI"]["value"]))
 
-    print "Round Three. Filled lists: desc. With:",str(len(desc)),"entries"
+    print "Filled lists: desc. With:",str(len(desc)),"entries"
     cPickle.dump(desc,open('pickle\\desc.list','w'))
 
 #======================================================#
@@ -265,6 +249,7 @@ def wordMatch(string):
         c = re.findall(r"\b"+re.escape(currentLabel)+r"\b",string)
         countLabel = len(c)
         if countLabel > 0:
+            print currentLabel
             currentLabel = labelDict[currentURI]
             foundLabel.append([countLabel,currentLabel,currentURI])
     foundLabel.sort(reverse=True)
@@ -276,6 +261,7 @@ def wordMatch(string):
 
     f = open('log\wordMatch.csv','a')
     if len(foundLabel) > 0:
+        print "Found",len(foundLabel),"words"
         labels = [found[1] for found in foundLabel]
         f.write(', '.join(labels) + '"\n')
     else:
@@ -304,7 +290,7 @@ def descMatch(doc):
     for i in range(len(sim)):
         if sim[i][0]-0.5 > 0.4:
             found.append(sim[i])
-    #print "over90 (" + str(len(found)) + ")"
+    print "over90 (" + str(len(found)) + ")"
     #print found,"\n"
     labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
     log.write(', '.join(labels[:50]))
@@ -314,21 +300,21 @@ def descMatch(doc):
     for i in range(len(sim)):
         if sim[i][0]-0.5 > 0.25:
             found.append(sim[i])
-    #print "over75 (" + str(len(found)) + ")"
+    print "over75 (" + str(len(found)) + ")"
     #print found,"\n"
     labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
     log.write(', '.join(labels[:50]))
     log.write('";"')
 
     found = sim[:5]
-    #print "best5 (" + str(len(found)) + ")"
+    print "best5 (" + str(len(found)) + ")"
     #print found,"\n"
     labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
     log.write(', '.join(labels[:50]))
     log.write('";"')
     
     found = sim[:10]
-    #print "best10 (" + str(len(found)) + ")"
+    print "best10 (" + str(len(found)) + ")"
     #print found,"\n"
     labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
     log.write(', '.join(labels[:50]))
@@ -339,7 +325,7 @@ def descMatch(doc):
     for i in range(len(sim)):
         if sim[i][0] > (0.8*number):
             found.append(sim[i])
-    #print "percent20 (" + str(len(found)) + ")"
+    print "percent20 (" + str(len(found)) + ")"
     #print found,"\n"
     labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
     log.write(', '.join(labels[:50]))
@@ -349,7 +335,7 @@ def descMatch(doc):
     for i in range(len(sim)):
         if sim[i][0] > (0.9*number):
             found.append(sim[i])
-    #print "percent10 (" + str(len(found)) + ")"
+    print "percent10 (" + str(len(found)) + ")"
     #print found,"\n"
     labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
     log.write(', '.join(labels[:50]))
@@ -467,7 +453,9 @@ def descWordNetMatch(string):
 # CyttronDB-specific functions to process lists        #
 #======================================================#        
 def listWordMatch(list):
+    print "\n"
     for i in range(len(list)):
+        print i+1,
         string = list[i]
         wordMatch(string)
 
@@ -519,7 +507,7 @@ def wikiGet(title):
 
 # Read cyttron csv and create list
 def cyttron(listname):
-    f = csv.reader(open('db\cyttron1.csv', 'rb'), delimiter=';')
+    f = csv.reader(open('db\cyttron-selection.csv', 'rb'), delimiter=';')
     for line in f:
         listname.append(line[0])
     print len(listname)
@@ -540,6 +528,7 @@ def wordMatchAll(lijst):
         bilist.append(line[2])
         trilist.append(line[3])
         comboList.append('. '.join(line))
+    print comboList[1]
 
     listWordMatch(lijst)
     os.rename('log\wordMatch.csv','log\wordMatch-literal.csv')
