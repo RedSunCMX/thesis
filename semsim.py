@@ -261,10 +261,8 @@ def drawGraph(nodes):
             if len(current) > 0:
                 for j in range(len(current)):
                     currentURI = current[j][2]
-                    print "current",currentURI
                     for k in range(j+1,len(current)):
                         otherURI = current[k][2]
-                        print "other",otherURI
                         findParents([[otherURI]])
                         parentOth = pathList[-1][-1][-1]
                         findParents([[currentURI]])

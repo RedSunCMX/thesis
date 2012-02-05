@@ -135,7 +135,7 @@ def getLabels():
     for x in results["results"]["bindings"]:
         label.append([x["label"]["value"],x["URI"]["value"]])
     print "LABEL | Filled list: label. With:",str(len(label)),"entries"
-
+    '''
     sparql.setQuery("""
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
@@ -154,9 +154,17 @@ def getLabels():
         Syn = flups.getElementsByTagName('ncicp:term-name')[0].toxml()
         cleanSyn = Syn.replace('<ncicp:term-name>','').replace('</ncicp:term-name>','')
         label.append([cleanSyn,x["URI"]["value"]])
-    print "SYNONYMS | Filled list: label. With:",str(len(label)),"entries"                    
+    print "SYNONYMS | Filled list: label. With:",str(len(label)),"entries"
+    print "Removing duplicates"
+    outlist=[]
+    for i in range(len(label)):
+            if [label[i][0].lower(),label[i][1]] not in outlist:
+                    outlist.append(label[i])
+    label = outlist
+    print len(label),"unique entries"
+    
     cPickle.dump(label,open('pickle\\label.list','w'))
-
+    '''
 def fillDict():
     global labelDict,label
     labelDict = {}
@@ -249,8 +257,9 @@ def wordMatch(string):
         c = re.findall(r"\b"+re.escape(currentLabel)+r"\b",string)
         countLabel = len(c)
         if countLabel > 0:
-            print currentLabel
+            #print currentLabel,
             currentLabel = labelDict[currentURI]
+            #print "(" + str(currentLabel) + " - " + str(currentURI) + ")"
             foundLabel.append([countLabel,currentLabel,currentURI])
     foundLabel.sort(reverse=True)
     for i in range(len(foundLabel)):
@@ -291,7 +300,7 @@ def descMatch(doc):
         if sim[i][0]-0.5 > 0.4:
             found.append(sim[i])
     print "over90 (" + str(len(found)) + ")"
-    #print found,"\n"
+    print found,"\n"
     labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
     log.write(', '.join(labels[:50]))
     log.write('";"')            
@@ -626,6 +635,7 @@ def stemList(sourceList):
             stem = stemmer.stem(tokens[j])
             templist.append(stem)
         sourceList[i] = ' '.join(templist)
+        print sourceList[i]
     print "Stemmed",len(sourceList),"texts"
 
 # Stem first element of two-element lists
