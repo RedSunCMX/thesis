@@ -1,6 +1,7 @@
 from SPARQLWrapper import SPARQLWrapper,JSON
 import cyttron
 from pygraph.classes.digraph import digraph
+from pygraph.classes.graph import graph
 from pygraph.readwrite.dot import write
 import sqlite3
 from gensim import corpora, models, similarities
@@ -10,7 +11,6 @@ import os
 
 cyttron.fillDict()
 dicto = cyttron.labelDict
-dicto[u'http://purl.obolibrary.org/obo/IAO_0000115']='Anatomical entity that has no mass'
 context = []
 queue = []
 visited = []
@@ -26,15 +26,8 @@ LCS = []
 #conn2 = sqlite3.connect('db/dbpnodes.db')
 done = False
 
-dicto[u'http://www.w3.org/2000/01/rdf-schema#subClassOf'] = 'subclass of'
-dicto[u'http://purl.org/obo/owl/obo#goslim_pir'] = "#goslim_pir"
-dicto[u'http://www.geneontology.org/formats/oboInOwl#inSubset'] = "in subset"
-dicto[u'http://purl.org/obo/owl/obo#goslim_yeast'] = '#goslim_yeast'
-dicto[u'http://purl.org/obo/owl/obo#goslim_generic'] = '#goslim_generic'
-dicto[u'http://purl.org/obo/owl/obo#gosubset_prok'] = '#gosubset_prok'
-
-URIx = 'http://purl.obolibrary.org/obo/MPATH_12'
-URIy = 'http://purl.obolibrary.org/obo/MPATH_10'
+URIx = 'http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#Frontal_Lobe'
+URIy = 'http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#Lobe'
 
 log = open('pathfinderlog.txt','w')
 
@@ -196,8 +189,8 @@ def drawGraph(nodes):
         for i in range(len(nodeList)):
             currentURI = nodeList[i][2]
             for j in range(i+1,len(nodeList)):
-                    node1 = str(nodeList[j][1])
-                    node2 = str(nodeList[i][1])
+                    node1 = str(dicto[nodeList[j][2]])
+                    node2 = str(dicto[nodeList[i][2]])
                     if G.has_node(node1) is False:
                         if number == 1:
                             size = nodeList[j][0]
@@ -251,7 +244,7 @@ def drawGraph(nodes):
                         print "\tdrawParents - added to Graph:",node
                     if G.has_edge((prevNode,node)) is False:
                         G.add_edge((prevNode,node),label="is a")
-
+    
     def drawBFS(nodeList):
         color = 'red'                                
         global path
@@ -271,16 +264,20 @@ def drawGraph(nodes):
                             path=[]
                             print "Trying:",otherURI,currentURI
                             SemSim(otherURI,currentURI)
+                            print path
                             print "Finished\n"
                             for i in range(len(path)):
                                 node1=str(dicto[path[i][0]])
                                 edge=str(path[i][1])
                                 node2=str(dicto[path[i][2]])
                                 if G.has_node(node1) is False:
+                                    print "drawn",node1
                                     G.add_node(node1,attrs=[('color', 'grey')])
                                 if G.has_node(node2) is False:
+                                    print "drawn",node2
                                     G.add_node(node2,attrs=[('color', 'grey')])
-                                if G.has_edge((node1,node2)) is False:                    
+                                if G.has_edge((node1,node2)) is False:
+                                    print "added edge"
                                     G.add_edge((node1,node2),label=str(edge).rsplit('/')[-1],attrs=[('color', color)])
                         else:
                             print "No path possible\n"
@@ -303,7 +300,49 @@ def drawGraph(nodes):
     f.write(dot)
     f.close()
     os.system("gv\\bin\\dot.exe -Tpng -ograph.png path.gv")
+    os.system("gv\\bin\\dot.exe path.gv -Tsvg")
     print "Created graph.png"
+
+def clusterSim(nodes):
+    G = graph()
+    for i in range(len(nodes)):
+        current = nodes[i][2]
+        currentLabel = dicto[nodes[i][2]]
+        if G.has_node(currentLabel) is False:
+            G.add_node(currentLabel)
+        for j in range(i+1,len(nodes)):
+            print current,
+            other = nodes[j][2]
+            otherLabel = dicto[nodes[j][2]]
+            if G.has_node(otherLabel) is False:
+                G.add_node(otherLabel)
+            print other
+            findLCS(current,other)
+            CSpec = 15 - len(pathList)
+            print "CSpec: ",CSpec
+
+            findParents([[current]])
+            parentOth = pathList[-1][-1][-1]
+            findParents([[other]])
+            parentCurr = pathList[-1][-1][-1]
+            if parentCurr == parentOth:
+                SemSim(current,other)
+                Path = len(path)-1
+                semDist = math.log((Path) * (CSpec) + 1)
+                print "\nSEMANTIC DISTANCE: ",semDist
+                if G.has_edge((currentLabel,otherLabel)) is False:
+                    G.add_edge((currentLabel,otherLabel),label=semDist)
+                    G.set_edge_weight((currentLabel,otherLabel),semDist)
+            else:
+                print "No parent"
+                
+    dot = write(G)
+    f = open('semDist.gv','w')
+    f.write(dot)
+    f.close()
+    os.system("gv\\bin\\dot.exe -Tpng -osem.png semDist.gv")
+    # os.system("gv\\bin\\dot.exe semDist.gv -Tsvg")
+    print "Created sem.png"
 
 def relabel(text):
     # from URI to label
@@ -474,10 +513,13 @@ def findLCS(URI1,URI2):
         findParents(LCS)
         log = open('pathfinderlog.txt','a')                            
         log.write('"LCS depth:' + str(pathList[0][0]) + '";"' + str(len(pathList)) + '"\n')
+        print "LCS depth: " + str(len(pathList))
+        print "LCS: " + str(pathList[0][0])
         log.close()
     else:
         log = open('pathfinderlog.txt','a')                            
         log.write('"LCS depth:-";"0"\n')
+        print "No LCS"
         log.close()
 
 def findParents(URI):

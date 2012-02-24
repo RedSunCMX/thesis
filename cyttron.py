@@ -29,6 +29,7 @@ descDict = {}
 stopset = set(stopwords.words('english'))
 stopset.add('http')
 stopset.add('www')
+stopset.add('nci')
 
 dictionary = corpora.Dictionary.load('newdict.dict')
 print dictionary
@@ -264,10 +265,10 @@ def wordMatch(string):
     foundLabel.sort(reverse=True)
     for i in range(len(foundLabel)):
         total += foundLabel[i][0]
-    
+    '''
     for i in range(len(foundLabel)):
         foundLabel[i][0] = (float(foundLabel[i][0])*0.2)+0.5
-
+    '''
     f = open('log\wordMatch.csv','a')
     if len(foundLabel) > 0:
         print "Found",len(foundLabel),"words"
@@ -300,7 +301,7 @@ def descMatch(doc):
         if sim[i][0]-0.5 > 0.4:
             found.append(sim[i])
     print "over90 (" + str(len(found)) + ")"
-    print found,"\n"
+    #print found,"\n"
     labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
     log.write(', '.join(labels[:50]))
     log.write('";"')            
@@ -316,6 +317,7 @@ def descMatch(doc):
     log.write('";"')
 
     found = sim[:5]
+    foundDesc = found
     print "best5 (" + str(len(found)) + ")"
     #print found,"\n"
     labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
@@ -324,7 +326,7 @@ def descMatch(doc):
     
     found = sim[:10]
     print "best10 (" + str(len(found)) + ")"
-    #print found,"\n"
+    print found,"\n"
     labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
     log.write(', '.join(labels[:50]))
     log.write('";"')    
