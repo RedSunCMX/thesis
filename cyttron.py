@@ -105,9 +105,14 @@ def get(string):
     global foundLabel,foundDesc,nodes
     foundLabel=[]
     wordMatch(string)
+    # append item
+    for i in range(len(foundLabel)):
+        foundLabel[i].append(True)
     foundDesc=[]
     descMatch(string)
-    nodes = [foundLabel,foundDesc]
+    for i in range(len(foundDesc)):
+        foundDesc[i].append(False)
+    nodes = foundLabel + foundDesc
     print "found concepts:"
     print len(nodes[0]),"literals"
     print len(nodes[1]),"non-literals"
