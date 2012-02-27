@@ -98,7 +98,7 @@ csvread = csv.reader(open('db\cyttron-selection.csv', 'rb'), delimiter=';')
 pub=[]
 group=[]
 priv=[]
-
+props = []
 nodes=[]
 
 def get(string):
@@ -141,6 +141,20 @@ def getLabels():
     for x in results["results"]["bindings"]:
         label.append([x["label"]["value"],x["URI"]["value"]])
     print "LABEL | Filled list: label. With:",str(len(label)),"entries"
+
+    sparql.setQuery("""
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+
+        SELECT ?URI ?label
+        WHERE {
+            ?URI a owl:ObjectProperty .        
+            ?URI rdfs:label ?label .
+            }""")
+    results = sparql.query().convert()
+    for x in results["results"]["bindings"]:
+        label.append([x["label"]["value"],x["URI"]["value"]])
+    print "LABEL | Filled list: label. With:",str(len(label)),"entries"
     '''
     sparql.setQuery("""
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -168,23 +182,15 @@ def getLabels():
                     outlist.append(label[i])
     label = outlist
     print len(label),"unique entries"
-    
-    cPickle.dump(label,open('pickle\\label.list','w'))
     '''
+    cPickle.dump(label,open('pickle\\label.list','w'))
+
 def fillDict():
     global labelDict,label
     labelDict = {}
     for i in range(len(label)):
         labelDict[label[i][1]] = label[i][0]
     print "Filled dict: labelDict. With:",str(len(labelDict)),"entries"
-
-revDict = {}
-
-def revDict():
-    global revDict,label
-    for i in range(len(label)):
-        labelDict[label[i][0]] = label[i][1]
-    print "Filled dict: labelDict. With:",str(len(revDict)),"entries"
 
 descDict = {}
 
@@ -199,16 +205,6 @@ def appendDescs():
     for i in range(len(label)):
         if label[i][1] in descDict:
             label[i].append(descDict[label[i][1]])
-
-def writeList():
-    for i in range(len(label)):
-        name = label[i][0]
-        uri = label[i][1]
-        if len(label[i]) > 2:
-            desc = label[i][2]
-            listFile.write("<a href=" + uri + ">" + name + "</a> " + "<a title=" + desc + ">*</a>")
-        else:
-            listFile.write("<a href=" + uri + ">" + name + "</a>")
 
 #======================================================#
 # Fill a list of Desc:URI values (Cyttron_DB)          #

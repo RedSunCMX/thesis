@@ -9,8 +9,9 @@ from nltk.corpus import stopwords, wordnet
 from nltk import word_tokenize, pos_tag, WordPunctTokenizer
 import matplotlib.pyplot as plt
 import os
+from Queue import Queue
 import json
-
+GR = nx.Graph()
 cyttron.fillDict()
 dicto = cyttron.labelDict
 context = []
@@ -28,62 +29,37 @@ LCS = []
 #conn2 = sqlite3.connect('db/dbpnodes.db')
 done = False
 
-URIx = 'http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#Frontal_Lobe'
-URIy = 'http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#Lobe'
+URIx = 'http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#Brain_Lobectomy'
+URIy = 'http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#Study'
 
 log = open('pathfinderlog.txt','w')
 
-class MyQUEUE:	
-    def __init__(self):
-        self.holder = []
-    def enqueue(self,val):
-        self.holder.append(val)
-    def dequeue(self):
-        val = None
-        try:
-            val = self.holder[0]
-            if len(self.holder) == 1:
-                self.holder = []
-            else:
-                self.holder = self.holder[1:]	
-        except:
-            pass	
-        return val		
-    def IsEmpty(self):
-        result = False
-        if len(self.holder) == 0:
-            result = True
-        return result
-
 def SemSim(URI1,URI2):
-    global queue,visited,done,log,path
-    q = MyQUEUE()
-    
+    global queue,visited,done,log,path,context
+    G = nx.DiGraph()
+    q = Queue()
+    path=[]
+    visited=[]
     # Sort list so node1-node2 == node2-node1
     lijstje=[URI1,URI2]
-    URI1 = sorted(lijstje)[0]
-    URI2 = sorted(lijstje)[1]
-
-    log = open('pathfinderlog.txt','a')                            
-    log.write('"node1";"' + str(URI1) + '"\n')
-    log.write('"node2";"' + str(URI2) + '"\n')
-    log.close()
+    start = sorted(lijstje)[0]
+    target = sorted(lijstje)[1]
 
     # Check if URI-path is already in db
     c = conn.cursor()
-    c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(URI1,URI2))
+    c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(start,target))
 
     # If it is, return the data
     if len(c.fetchall()) > 0:
-        print "Initial URI Path already exists!",URI1.rsplit('/')[-1],"-",URI2.rsplit('/')[-1]
-        c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(URI1,URI2))
+        print "Initial URI Path already exists!",start.rsplit('/')[-1],"-",target.rsplit('/')[-1]
+        c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(start,target))
         result = c.fetchall()
         c.close()
-        URI1 = result[0][0]
-        URI2 = result[0][1]
+        start = result[0][0]
+        target = result[0][1]
         pathlength = result[0][2]
         path = eval(result[0][3])
-        print "pathlength:",pathlength
+        print "SemSim | pathlength:",pathlength
         log = open('pathfinderlog.txt','a')
         log.write('"pathlength";"' + str(pathlength) + '"\n')
         log.close()
@@ -92,99 +68,107 @@ def SemSim(URI1,URI2):
     # If it's not, start BFS algorithm
     else:
         done = False
-        queue=[]
-        visited=[]
-        q.enqueue([URI1])
-        while q.IsEmpty() == False:
-            curr_path = q.dequeue()
+        queue = []
+        q.put([start])
+        
+        while not q.empty():
+            # Start algorithm, pop value from queue
+            curr_path = q.get()
             queue.append(curr_path)
             for i in range(len(curr_path)):
                 if len(curr_path) == 1 and len(curr_path[0])>3:
                     # If current path is a single URI, means 1st cycle
                     node = curr_path[0]
-                    print "Start node:",node
+                    print "SemSim | Start node:",node
                     visited.append(node)
                     getNodes(node)
-                    q.enqueue(context)
-
+                    q.put(context)
+                    # context in, path out
+                    checkNodes(context,start,target)
+                    if len(path) > 0:
+                        # print "SemSim |",path
+                        path=[]
+                        q.empty()
+                        return "Done"
+                    else:
+                        continue
                 else:
+                    # THIS IS BFS
                     node1 = curr_path[i][0]
                     node2 = curr_path[i][2]
-                    edgeLabel = curr_path[i][1]
-                    # No target node found: add node to visited list and fetch neighbours (if its not visited + not one of the ignored nodes)
-                    if node1 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node1 and 'http://www.geneontology.org/formats/oboInOwl#ObsoleteClass' not in node1:
+                    #print "\nSemSim | START BFS:\t",dicto[node1],"->",dicto[node2]
+                    if node1 not in visited:
                         node = node1
                         visited.append(node)
+                        print "GET NEIGHBOURS:\t",node
                         getNodes(node)
-                        checkNodes(context,URI1,URI2)
+                        checkNodes(context,start,target)
                         if len(path) > 0:
-                            print path
+                            path=[]
+                            q.empty()
                             return "Done"
                         else:
-                            # print "No match found..."                            
-                            q.enqueue(context)                        
-                    elif node2 not in visited and 'http://www.w3.org/2002/07/owl#Class' not in node2 and 'http://www.geneontology.org/formats/oboInOwl#ObsoleteClass' not in node2:
+                            q.put(context)
+                    elif node2 not in visited:
                         node = node2
                         visited.append(node)
+                        print "GET NEIGHBOURS:\t",node
                         getNodes(node)
-                        checkNodes(context,URI1,URI2)
+                        checkNodes(context,start,target)
                         if len(path) > 0:
-                            print path
+                            path=[]
+                            q.empty()
                             return "Done"
                         else:
-                            # print "No match found..."
-                            q.enqueue(context)
-
-        print 'empty queue. Inserting path=0'
-        c.execute('insert into thesis values (?,?,?,?)',(URI1,URI2,0,'[]'))
-        conn.commit()
-        c.close()
+                            q.put(context)
 
 def checkNodes(context,URI1,URI2):
+    # context in, path out
     global path,queue
     done = False
-    # print "checking neighbours..."    
+    
     for i in range(len(context)):
         node1 = context[i][0]
         node2 = context[i][2]
-        # print "node1:",node1.rsplit('/')[-1],"node2:",node2.rsplit('/')[-1],"\t",URI2.rsplit('/')[-1]
         if node1 == URI2 or node2 == URI2:
             queue.append(context)
+            print "\ncheckNodes | FOUND URI2",context[i]
             done = True
-            print "URI1:",URI1
-            print "URI2:",URI2
+            print "checkNodes | URI1:",URI1
+            print "checkNodes | URI2:",URI2
             showPath(queue,URI1,URI2)
         else:
+            path=[]
             done = False
+
         if done == True:
-            string = "Found a link! Stored in path. Length:",len(path),"| Visited:",len(visited),"nodes."
             log = open('pathfinderlog.txt','a')                            
             log.write('"pathlength";"' + str(len(path)) + '"\n')
             log.close()
-            print string
-            print 'Wrote path to log-file'
+            print "checkNodes | Found a path! Length:",str(len(path)),"| Visited:",str(len(visited)),"nodes."
             c = conn.cursor()
             c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(URI1,URI2))
             if len(c.fetchall()) > 0:
-                print "BEST VER Path already exists!"
+                print "checkNodes | Path already exists (wtf?)"
             else:
-                print "BEST VER Inserting path!"
+                print "checkNodes | Inserting path to paths.db."
                 c.execute('insert into thesis values (?,?,?,?)',(URI1,URI2,len(path),str(path)))
                 conn.commit()
             c.close()
             findFlips(path,URI1,URI2)
             return path
+        else:
+            continue
     return path
 
 def drawGraph(nodes):
     global path,dicto,pathList,G,LCS,contextURI
-    edgelist=[]
     
     # Default settings
     G = nx.DiGraph()
 
     def drawStart(nodeList):
-        color = 'red'
+        color = '#b94431'
         global path,dicto,pathList,G,LCS        
         # Double for-loop to go through all nodes. Draw start nodes
         for i in range(len(nodeList)):
@@ -201,6 +185,7 @@ def drawGraph(nodes):
                             G.node[node1]['style']='filled'
                             G.node[node1]['size']=size
                             G.node[node1]['URI']=nodeList[j][2]
+                            print "START","added",node1
                         else:
                             size = nodeList[j][0]
                             G.add_node(node1)
@@ -208,6 +193,7 @@ def drawGraph(nodes):
                             G.node[node1]['stroke']=color
                             G.node[node1]['size']=size
                             G.node[node1]['URI']=nodeList[j][2]
+                            print "START","added",node1                            
                     if G.has_node(node2) is False:
                         if literal is True:
                             size = nodeList[i][0]                            
@@ -216,6 +202,7 @@ def drawGraph(nodes):
                             G.node[node2]['style']='filled'
                             G.node[node2]['size']=size
                             G.node[node2]['URI']=nodeList[i][2]
+                            print "START","added",node2                            
                         else:
                             size = nodeList[i][0]
                             G.add_node(node2)
@@ -223,9 +210,10 @@ def drawGraph(nodes):
                             G.node[node2]['stroke']=color
                             G.node[node2]['size']=size
                             G.node[node2]['URI']=nodeList[i][2]
+                            print "START","added",node2                            
 
     def drawLCS(nodeList):
-        color = 'orange'
+        color = '#da991c'
         global path,dicto,pathList,G,LCS        
         # Second double for-loop to go through all the LCSes. Draw LCS.
         for i in range(len(nodeList)):
@@ -239,6 +227,50 @@ def drawGraph(nodes):
                         G.add_node(LCSnode)
                         G.node[LCSnode]['color']=color
                         G.node[LCSnode]['URI']=LCS[0][0]
+                        print "LCS","added",LCSnode
+                        
+    def drawBFS(nodeList):
+        color = '#999999'
+        global path
+        if len(nodeList) > 0:
+            for j in range(len(nodeList)):
+                currentURI = nodeList[j][2]
+                for k in range(j+1,len(nodeList)):
+                    otherURI = nodeList[k][2]
+                    findParents([[otherURI]])
+                    parentOth = pathList[-1][-1][-1]
+                    findParents([[currentURI]])
+                    parentCurr = pathList[-1][-1][-1]
+                    if parentCurr == parentOth:
+                        path=[]
+                        print "Trying:",otherURI,currentURI
+                        SemSim(otherURI,currentURI)
+                        print "Finished\n"
+                        for i in range(len(path)):
+                            node1=str(dicto[path[i][0]])
+                            if path[i][1] == 'is a':
+                                edge=path[i][1]
+                            else:
+                                edge=str(dicto[path[i][1]])
+                            node2=str(dicto[path[i][2]])
+
+                            if G.has_node(node1) is False:
+                                G.add_node(node1)
+                                G.node[node1]['color']=color
+                                G.node[node1]['URI']=path[i][0]
+
+                            if G.has_node(node2) is False:                                    
+                                G.add_node(node2)
+                                G.node[node2]['color']=color
+                                G.node[node2]['URI']=path[i][2]
+
+                            G.add_edge(node1,node2)
+                            G.edge[node1][node2]['color']='#b94431'
+                            G.edge[node1][node2]['width']=2
+                            G.edge[node1][node2]['label']=edge
+                    else:
+                        path = []
+                        print "No path possible"
 
     def drawParents(nodeList):
         color = '#999999'
@@ -266,45 +298,7 @@ def drawGraph(nodes):
                     if G.has_edge(prevNode,node) is False:
                         G.add_edge(prevNode,node)
                         G.edge[prevNode][node]['width']=2
-                        
-    def drawBFS(nodeList):
-        color = '#999999'
-        global path
-        if len(nodeList) > 0:
-            for j in range(len(nodeList)):
-                currentURI = nodeList[j][2]
-                for k in range(j+1,len(nodeList)):
-                    otherURI = nodeList[k][2]
-                    findParents([[otherURI]])
-                    parentOth = pathList[-1][-1][-1]
-                    findParents([[currentURI]])
-                    parentCurr = pathList[-1][-1][-1]
-                    if parentCurr == parentOth:
-                        path=[]
-                        print "Trying:",otherURI,currentURI
-                        SemSim(otherURI,currentURI)
-                        print path
-                        print "Finished\n"
-                        for i in range(len(path)):
-                            node1=str(dicto[path[i][0]])
-                            edge=str(path[i][1])
-                            node2=str(dicto[path[i][2]])
-
-                            if G.has_node(node1) is False:
-                                G.add_node(node1)
-                                G.node[node1]['color']=color
-                                G.node[node1]['URI']=path[i][0]
-
-                            if G.has_node(node2) is False:                                    
-                                G.add_node(node2)
-                                G.node[node2]['color']=color
-                                G.node[node2]['URI']=path[i][2]
-
-                            G.add_edge(node1,node2)
-                            G.edge[node1][node2]['color']='red'
-                            G.edge[node1][node2]['width']=2
-                    else:
-                        print "No path possible\n"
+                        G.edge[prevNode][node]['label']='subclass of'
 
     drawStart(nodes)
     drawLCS(nodes)
@@ -331,14 +325,14 @@ def drawGraph(nodes):
     print ''
     print s
     
-    #nx.write_dot(G,'file.gv')
+    nx.write_dot(G,'file.gv')
     #pos=nx.graphviz_layout(G,prog="neato")
     #nx.draw(G,pos,node_color=colorlist,width=edgelist,arrows=False,node_size=sizelist)
     #plt.show()
 
 def clusterSim(nodes):
     G = nx.Graph()
-    color = "red"
+    color = "#b94431"
     for i in range(len(nodes)):
         current = nodes[i][2]
         currentLabel = dicto[nodes[i][2]]
@@ -382,32 +376,29 @@ def clusterSim(nodes):
 
 def showPath(list,start,target):
     global path
-    path = []
+    GR = nx.Graph()
+    
     for x in range(len(list),0,-1):
-        if x-1 > 1:
             hop = list[x-1]
             for i in range(len(hop)):
                 leftNode = hop[i][0]
                 rightNode = hop[i][2]
-                if leftNode == target:
-                    path.append(hop[i])
-                    target = rightNode
-                    break
-                if rightNode == target:
-                    path.append(hop[i])
-                    target = leftNode
-                    break
-        if x-1 == 1:
-            hop = list[x-1]
-            for i in range(len(hop)):
-                leftNode = hop[i][0]
-                rightNode = hop[i][2]
-                if leftNode == start and rightNode == target:
-                    path.append(hop[i])
-                    return path                    
-                if rightNode == start and leftNode == target:
-                    path.append(hop[i])
-                    return path
+                GR.add_node(leftNode)
+                GR.add_node(rightNode)
+                GR.add_edge(leftNode,rightNode)
+
+    print "Drawn Graph: GR"
+    spath = (nx.shortest_path(GR,source=start,target=target))
+    print spath
+    for i in range(1,len(spath)):
+        node1 = spath[i-1]
+        node2 = spath[i]
+        for j in range(len(list)):
+            hop = list[j]
+            for k in range(len(hop)):
+                if node1 in hop[k] and node2 in hop[k] and hop[k] not in path:
+                    path.append(hop[k])
+    return path
 
 def findFlips(path,start,target):
     flips = ""
@@ -439,24 +430,11 @@ def findFlips(path,start,target):
     return count
 
 def getNodes(URI):
+    # Empties context, returns context
     global context
-
-    if 'obo/MPATH_' in URI:
-        ns = 'mpath'
-    if 'obo/DOID_' in URI:
-        ns = 'doid'
-    if 'EVS/Thesaurus' in URI:
-        ns = 'nci'
-    if 'http://purl.org/obo/owl/GO' in URI:
-        ns='go'
-    if 'obo/EHDA_' in URI:
-        ns='ehda'
-    if '/NCBITaxon' in URI:
-        ns='ncbi'
-
     context=[]
     c = conn2.cursor()
-    c.execute('SELECT * FROM ' + str(ns) +' WHERE URI=?', (URI,))
+    c.execute('SELECT * FROM nci WHERE URI=?', (URI,))
     result = c.fetchall()
     c.close()
     
@@ -470,65 +448,58 @@ def getNodes(URI):
         print URI.rsplit('/')[-1],"has",
 
         # URI is_a X
-        querystring="""PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
-SELECT ?s WHERE { <""" + str(URI) + """> rdfs:subClassOf ?s . FILTER ( isURI(?s )) . }"""
+        querystring="""
+        PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+        SELECT DISTINCT ?s WHERE { <""" + str(URI) + """> rdfs:subClassOf ?s . FILTER ( isURI(?s )) . }"""
         sparql.setQuery(querystring)        
         results = sparql.query().convert()
         for x in results["results"]["bindings"]:
-            if 'http://www.w3.org/' not in x['s']['value']:
-                context.append([URI,"is a",x["s"]["value"]])
-
-        if ns == 'go' or ns == 'ehda':
-        # URI part_of X
-            print "trying part_of rel"
-            querystring="""
-            PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
-            PREFIX owl:<http://www.w3.org/2002/07/owl#>
-
-            SELECT ?s WHERE {
-            <""" + str(URI) + """> rdfs:subClassOf ?b1 . FILTER ( isBLANK(?b1)) .
-            ?b1 owl:someValuesFrom ?s . FILTER ( isURI(?s )) . }"""
-            sparql.setQuery(querystring)
-            results = sparql.query().convert()
-            for x in results["results"]["bindings"]:
-                if 's' in x:
-                    if 'http://www.w3.org/' not in x['s']['value']:            
-                        context.append([URI,"is part of",x["s"]["value"]])                
+            context.append([URI,"is a",x["s"]["value"]])
 
         # X is_a URI
-        querystring="""PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
-        SELECT DISTINCT ?o WHERE {
-        { ?o rdfs:subClassOf <""" + str(URI) + """> . FILTER (isURI(?o )) . }
-        }"""
+        querystring="""
+        PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+        SELECT DISTINCT ?o WHERE { ?o rdfs:subClassOf <""" + str(URI) + """> . FILTER (isURI(?o )) . }"""
         sparql.setQuery(querystring)
         results = sparql.query().convert()
         for x in results["results"]["bindings"]:
-            if 'http://www.w3.org/' not in x['o']['value']:            
-                context.append([x["o"]["value"],'is a',URI])
+            context.append([x["o"]["value"],'is a',URI])
 
-        if ns == 'go' or ns == 'ehda':
+        # URI part_of X
+        querystring="""
+        PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX owl:<http://www.w3.org/2002/07/owl#>
+
+        SELECT DISTINCT ?s ?p WHERE {
+        <""" + str(URI) + """> rdfs:subClassOf ?b1 . FILTER ( isBLANK(?b1)) .
+        ?b1 owl:someValuesFrom ?s .
+        ?b1 owl:onProperty ?p . }"""
+        sparql.setQuery(querystring)
+        results = sparql.query().convert()
+        for x in results["results"]["bindings"]:
+            context.append([URI,x["p"]["value"],x["s"]["value"]])
+
         # X part_of URI
-            querystring="""
-            PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
-            PREFIX owl:<http://www.w3.org/2002/07/owl#>
-            SELECT ?o WHERE {
-            ?blank owl:someValuesFrom <""" + str(URI) + """> . FILTER ( isBLANK(?blank)) .
-            ?o rdfs:subClassOf ?blank . FILTER ( isURI(?o )) . }"""
-            sparql.setQuery(querystring)
-            results = sparql.query().convert()        
-            for x in results["results"]["bindings"]:
-                if 's' in x:
-                    if 'http://www.w3.org/' not in x['s']['value']:
-                        context.append([URI,"is part of",x["s"]["value"]])                  
-                
+        querystring="""
+        PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX owl:<http://www.w3.org/2002/07/owl#>
+        
+        SELECT DISTINCT ?o ?p WHERE {
+        ?blank owl:someValuesFrom <""" + str(URI) + """> . FILTER ( isBLANK(?blank)) .
+        ?blank owl:onProperty ?p .
+        ?o rdfs:subClassOf ?blank . FILTER ( isURI(?o )) . }"""
+        sparql.setQuery(querystring)
+        results = sparql.query().convert()
+        for x in results["results"]["bindings"]:
+            context.append([x["o"]["value"],x["p"]["value"],URI])        
+
         print len(context),"neighbours (to db)"
         c = conn2.cursor()
         t = (URI,str(context))
-        c.execute('insert into ' + str(ns) + ' values (?,?)', t)
+        c.execute('insert into nci values (?,?)', t)
         conn2.commit()
         c.close()
     return context
-    
 
 #======================================================#
 # 'shared parents' stuff                               #
@@ -552,7 +523,7 @@ def findLCS(URI1,URI2):
         log.close()
 
 def findParents(URI):
-    # Returns a pathList which includes all parents per hop
+    # Returns a pathList which includes all parents per hop in tuples [(child,parent),(child,parent)]
     global iup, pathList,endpoint
     list_out=[]
     iup += 1
@@ -575,7 +546,6 @@ def findParents(URI):
             results = sparql.query().convert()
             for x in results["results"]["bindings"]:
                 list_out.append((URI[iup-1][i][1],x["super"]["value"]))
-                
     if len(list_out) > 0:
         URI.append(list_out)
         findParents(URI)
