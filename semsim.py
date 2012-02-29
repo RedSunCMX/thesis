@@ -230,8 +230,9 @@ def drawGraph(nodes):
                         print "LCS","added",LCSnode
                         
     def drawBFS(nodeList):
-        color = '#999999'
+        color = '#333333'
         global path
+        path = []
         if len(nodeList) > 0:
             for j in range(len(nodeList)):
                 currentURI = nodeList[j][2]
@@ -273,7 +274,7 @@ def drawGraph(nodes):
                         print "No path possible"
 
     def drawParents(nodeList):
-        color = '#999999'
+        color = '#333333'
         global path,dicto,pathList,G,LCS    
         # Third double for-loop to go through all the parents. Draw parents.
         for i in range(len(nodeList)):
@@ -326,9 +327,6 @@ def drawGraph(nodes):
     print s
     
     nx.write_dot(G,'file.gv')
-    #pos=nx.graphviz_layout(G,prog="neato")
-    #nx.draw(G,pos,node_color=colorlist,width=edgelist,arrows=False,node_size=sizelist)
-    #plt.show()
 
 def clusterSim(nodes):
     G = nx.Graph()
@@ -519,7 +517,6 @@ def findLCS(URI1,URI2):
     else:
         log = open('pathfinderlog.txt','a')                            
         log.write('"LCS depth:-";"0"\n')
-        print "No LCS"
         log.close()
 
 def findParents(URI):

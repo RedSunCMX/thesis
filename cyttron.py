@@ -17,8 +17,8 @@ import logging
 logging.root.setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 import cProfile
-import pickle
 import cPickle
+import pickle
 import fuzzywuzzy
 from fuzzywuzzy import fuzz
 from xml.dom.minidom import parse, parseString
@@ -31,14 +31,21 @@ stopset.add('http')
 stopset.add('www')
 stopset.add('nci')
 
-dictionary = corpora.Dictionary.load('newdict.dict')
+# --- GenSim Stuff
+dictionary = corpora.Dictionary.load('vsm\\normal\\normal-dictionary.dict')
 print dictionary
-corpus = corpora.MmCorpus('stemcorpus.mm')
+corpus = corpora.MmCorpus('vsm\\normal\\normal-corpus.mm')
 print corpus
-tfidf = models.TfidfModel.load('stemtfidf.model')
+tfidf = models.TfidfModel.load('vsm\\normal\\normal-tfidf.model')
 print tfidf
 
-index = similarities.Similarity.load('stem.index')
+index = similarities.Similarity.load('vsm\\normal\\normal-index.index')
+
+tfidfFile = open('vsm\\normal\\tfidfDesc.list','r')
+tfidfDesc = pickle.load(tfidfFile)
+tfidfFile.close()
+print "TF-IDF Descriptions:",len(tfidfDesc),"\n"
+# ---
 
 labelFile = open('pickle\\label.list','r')
 label = pickle.load(labelFile)
@@ -53,12 +60,7 @@ print "Descriptions:",len(desc),"\n"
 labelDictFile = open('pickle\\labelDict.pickle','r')
 labelDict = pickle.load(labelDictFile)
 labelDictFile.close()
-'''
-tfidfFile = open('pickle\\tfidf.pckl','r')
-tfidfDesc = pickle.load(tfidfFile)
-tfidfFile.close()
-print "TF-IDF Descriptions:",len(tfidfDesc),"\n"
-'''
+
 # sparql-lists
 bigList= []
 foundLabel= []
@@ -78,7 +80,6 @@ iup = 0
 pathList = []
 
 #teststring
-string = "Since AD is associated with a decrease in memory function and the hippocampus might play a role in memory function, researchers focussed on the degeneration of the hippocampus. Bilateral hippocamal atrophy is found in the brains of Alzheimer patients9. Reduction of the hippocampus for diagnosing is measured in two different ways. By using volumetry of the hippocampus itself or by using volumetry of the AHC (amygdale hippocampal complex). Volumetric studies of the hippocampus showed a reduction of 25 -39% 10,11,12. When measuring relative size in relation to the total cranial volume even a bigger reduction is found of 45%10. Yearly measurements of hippocampal volumes in Alzheimer patients showed a 3.98 /-1.92% decrease per year (p < 0.001)6. Patients with severe AD disease show higher atrophy rates compared to early or mild AD10,11. Correlations are found between hippocampal atrophy and severity of dementia, age 11and sex. Because a correlation is found between age and hippocampal atrophy, volumetric changes should be correct for age and sex. For clinical diagnoses it still remains uncertain whether volumetric measurements of the hippocampus alone is the most accurate way, some studies imply so 12. For diagnosing AD by hippocampal volume measurements the sensitivity varies between 77% and 95% and a specificity of 71-92% 9, 11-14. The sensitivity and specificity varies due the variance of patients and controls used. Patients varies in severity of disease and controls in these studies included FTP, MCI or non-alzheimer elderly. Other studies found that diagnosis based on volumetric changes are comparable for the hippocampus and ERC, but due the more easier use and less variability of hippocampal volumetry, the hippocampus is more feasible for diagnosis 13, 15.  Other studies found that combinations of different volumetric measurements with parahippocampal cortex, ERC14or amygdale (see AHC)  are indeed needed for a more accurate diagnosis of AD patients. AD has some similar atrophic regions compared to Mild Cognitive Impairment (MCI), therefore volumetry of the ERC in combination with hippocampal volumetry can give a more accurate diagnosis of AD 14. Total intracranial volume (TIV) and temporal horn indices (THI:  ratio of THV to lateral ventricular volume) can be used as surrogate marker for volume loss of hippocampal formation. A negative correlation is found between THI and THV and the declarative reminding test 16. Some studies indicate that the accuracy of AD diagnosis increases by volumetry of amygdala-hippocampal complex (AHC) compared to only volumetric measurements of the hippocampus 10"
 repo="nci"
 endpoint="http://localhost:8080/openrdf-sesame/repositories/" + repo
 
@@ -155,34 +156,7 @@ def getLabels():
     for x in results["results"]["bindings"]:
         label.append([x["label"]["value"],x["URI"]["value"]])
     print "LABEL | Filled list: label. With:",str(len(label)),"entries"
-    '''
-    sparql.setQuery("""
-        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-        PREFIX owl: <http://www.w3.org/2002/07/owl#>
-        PREFIX nci:<http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#>
 
-        SELECT ?URI ?syn
-        WHERE {
-            ?URI a owl:Class .
-            ?URI nci:FULL_SYN ?syn .
-        }
-        """)
-
-    results = sparql.query().convert()
-    for x in results["results"]["bindings"]:
-        flups = parseString(x["syn"]["value"])
-        Syn = flups.getElementsByTagName('ncicp:term-name')[0].toxml()
-        cleanSyn = Syn.replace('<ncicp:term-name>','').replace('</ncicp:term-name>','')
-        label.append([cleanSyn,x["URI"]["value"]])
-    print "SYNONYMS | Filled list: label. With:",str(len(label)),"entries"
-    print "Removing duplicates"
-    outlist=[]
-    for i in range(len(label)):
-            if [label[i][0].lower(),label[i][1]] not in outlist:
-                    outlist.append(label[i])
-    label = outlist
-    print len(label),"unique entries"
-    '''
     cPickle.dump(label,open('pickle\\label.list','w'))
 
 def fillDict():
@@ -232,6 +206,20 @@ def getDescs():
         p = re.compile(r'<.*?>')
         cleanDesc = p.sub('',x["def"]["value"])
         desc.append((cleanDesc,x["URI"]["value"]))
+
+    sparql.setQuery("""
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        PREFIX nci:<http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#>
+
+        SELECT ?URI ?def
+        WHERE {
+            ?URI a owl:ObjectProperty .        
+            ?URI nci:DEFINITION ?def .
+            }""")
+    results = sparql.query().convert()
+    for x in results["results"]["bindings"]:
+        desc.append([x["def"]["value"],x["URI"]["value"]])
 
     print "Filled lists: desc. With:",str(len(desc)),"entries"
     cPickle.dump(desc,open('pickle\\desc.list','w'))
@@ -301,6 +289,7 @@ def descMatch(doc):
     for i in range(len(sim)):
         if sim[i][0]-0.5 > 0.4:
             found.append(sim[i])
+            print sim[i]
     print "over90 (" + str(len(found)) + ")"
     #print found,"\n"
     labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
@@ -776,10 +765,9 @@ def createIndex():
     vecdesc = tfidf[bowdesc]
 
 def buildCorpus():
-    corpustxt = open('corpus.txt','w')
-    corpustxt.close()
     directory = "E:\\articles\\articles\\"
     files = os.listdir("E:\\articles\\articles\\")
+    blank = "To access the full article, please see PDF"
     for i in range(len(files)):
         doclist = []
         currentFile = directory + str(files[i])
@@ -788,18 +776,18 @@ def buildCorpus():
         bdy = r[0]
         for x in bdy:
             p = x.itertext()
-            for j in p:
-                if j is not None and 'MathType@' not in j:
+            for j in p: 
+                if 'MathType@' not in j and blank not in j and not j.isspace() and len(j)>15:
                     result = cleanDoc(j)
-                    if len(result) > 1:    
+                    if len(result) > 3:
                         doclist.append(' '.join(result))
-        clean = ' '.join(doclist)
-        if len(clean) > 1500:
+        if len(doclist) > 0:
+            clean = ' '.join(doclist)
             print str(i)+":",files[i]
-            corpustxt = open('corpus.txt','a')
+            corpustxt = open('vsm\\stem\\stem-corpus.txt','a')
             corpustxt.write('"' + clean.encode('utf-8') + '"\n')
             corpustxt.close()
-    print 'Finished'    
+    print 'Finished'
 
 def main():
     global cyttronlist,wikilist,cyttronKeywords,wikiKeywords
