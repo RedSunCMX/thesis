@@ -180,6 +180,138 @@ def appendDescs():
         if label[i][1] in descDict:
             label[i].append(descDict[label[i][1]])
 
+revDict = {}
+
+def revvDict():
+    global revDict,label
+    for i in range(len(label)):
+        revDict[label[i][0]] = label[i][1]
+    print "Filled dict: labelDict. With:",str(len(revDict)),"entries"
+
+def labelToURI(string,string2):
+    newList=[]
+    list = string.split(',')
+    for i in range(len(list)):
+        print revDict[list[i]]
+        if list[i].lower() in string2.lower():
+            newList.append([1,list[i],revDict[list[i]],True])
+        else:
+            newList.append([1,list[i],revDict[list[i]],False])
+    print newList
+
+def csvToNodes():
+    directory = "log\\DEF\\"
+    files = os.listdir(directory)
+    for i in range(len(files)):
+        newList=[]
+        csvtje = csv.reader(open(str(directory) + str(files[i]),'rb'),delimiter=';',quotechar='"')
+        print files[i]
+        for line in csvtje:
+                temp = line[1].split(',')
+                for j in range(1,len(temp)):
+                    uri = str(temp[j]).replace(' ','')
+                    currLabel = labelDict[uri]
+                    if currLabel.lower() in line[0].lower():
+                        newList.append([1,currLabel,uri,True])
+                    else:
+                        newList.append([1,currLabel,uri,False])
+        print newList
+
+def buildMatrix():
+    '''
+    Confusion Matrix
+    http://www2.cs.uregina.ca/~hamilton/courses/831/notes/confusion_matrix/confusion_matrix.html
+    '''
+
+    matrix = []
+    prList = []
+    f = open('log\\confmatrix.csv','w')
+    f.write('"Algorithm";"Accuracy";"True Positives";"False Positives";"True Negatives";"False Negatives";"Precision"\n')
+    f.close()
+    algoDir = "log\\DEF\\"
+    expertDir = "log\\expert\\"
+    URIlist = [l[1] for l in label]
+    # Fill list with expert results
+    files = os.listdir(expertDir)
+    for i in range(len(files)):
+        expertList = []
+        csvtje = csv.reader(open(str(expertDir) + str(files[i]),'rb'),delimiter=';',quotechar='"')
+        for line in csvtje:
+            tempList=[]
+            temp = line[1].split(',')
+            for j in range(1,len(temp)):
+                uri = str(temp[j]).replace(' ','')
+                tempList.append(uri)
+            print len(tempList),"URIs"                
+            expertList.append(tempList)
+    print "expertList:",expertList
+
+    # Fill list with algo results
+    files = os.listdir(algoDir)
+    for i in range(len(files)):
+        algoList = []
+        print files[i]
+        
+        # print "\n",files[i]
+        csvtje = csv.reader(open(str(algoDir) + str(files[i]),'rb'),delimiter=';',quotechar='"')
+        for line in csvtje:
+            tempList=[]
+            temp = line[1].split(',')
+            for j in range(len(temp)):
+                uri = str(temp[j]).replace(' ','')
+                tempList.append(uri)
+            algoList.append(tempList)
+
+        if len(algoList) == 9:
+            algoList = algoList[1:]
+
+        A = 0.0
+        B = 0.0
+        C = 0.0
+        D = 0.0
+        for j in range(len(algoList)):
+            algoPOS = algoList[j]
+            algoNEG = [item for item in URIlist if item not in algoList[j]]
+            expertPOS = expertList[j]
+            expertNEG = [item for item in URIlist if item not in expertList[j]]
+            
+            temp1 = float(len(set(algoNEG).intersection(expertNEG)))
+            temp2 = float(len(set(algoPOS).intersection(expertNEG)))
+            temp3 = float(len(set(algoNEG).intersection(expertPOS)))
+            temp4 = float(len(set(algoPOS).intersection(expertPOS)))
+                        
+            A += temp1
+            B += temp2
+            C += temp3
+            D += temp4
+
+        matrix.append([[A,B],[C,D]])
+        
+        AC = ((A+D) / (A+B+C+D))
+        TP = ((D) / (C+D))
+        FP = ((B) / (A+B))
+        TN = ((A) / (A+B))
+        FN = ((C) / (C+D))
+        if (B+D) > 0:
+            P = ((D) / (B+D))
+        else:
+            P = 0
+        
+        print "AC",round(AC,4),
+        print "TP",round(TP,4),
+        print "FP",round(FP,4),
+        print "TN",round(TN,4),
+        print "FN",round(FN,4),
+        print "P",round(P,4)
+        
+        prList.append([files[i],AC,TP,FP,TN,FN,P])
+    # pprint(prList)
+    pprint(matrix)
+    for i in range(len(prList)):
+        f = open('log\\confmatrix.csv','a')
+        f.write('"' + str(prList[i][0]) + '";"' + str(prList[i][1]) + '";"' + str(prList[i][2]) + '";"' + str(prList[i][3]) + '";"' + str(prList[i][4]) + '";"' + str(prList[i][5]) + '";"' + str(prList[i][6]) + '"\n')
+        f.close()
+        
 #======================================================#
 # Fill a list of Desc:URI values (Cyttron_DB)          #
 #======================================================#
@@ -247,21 +379,16 @@ def wordMatch(string):
         c = re.findall(r"\b"+re.escape(currentLabel)+r"\b",string)
         countLabel = len(c)
         if countLabel > 0:
-            #print currentLabel,
             currentLabel = labelDict[currentURI]
-            #print "(" + str(currentLabel) + " - " + str(currentURI) + ")"
             foundLabel.append([countLabel,currentLabel,currentURI])
     foundLabel.sort(reverse=True)
     for i in range(len(foundLabel)):
         total += foundLabel[i][0]
-    '''
-    for i in range(len(foundLabel)):
-        foundLabel[i][0] = (float(foundLabel[i][0])*0.2)+0.5
-    '''
+
     f = open('log\wordMatch.csv','a')
     if len(foundLabel) > 0:
         print "Found",len(foundLabel),"words"
-        labels = [found[1] for found in foundLabel]
+        labels = [found[2] for found in foundLabel]
         f.write(', '.join(labels) + '"\n')
     else:
         f.write('0"\n')
@@ -290,10 +417,8 @@ def descMatch(doc):
         if sim[i][0]-0.5 > 0.4:
             found.append(sim[i])
             print sim[i]
-    print "over90 (" + str(len(found)) + ")"
-    #print found,"\n"
-    labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
-    log.write(', '.join(labels[:50]))
+    labels = [str(f[2]) for f in found]
+    log.write(','.join(labels))
     log.write('";"')            
 
     found = []
@@ -302,23 +427,23 @@ def descMatch(doc):
             found.append(sim[i])
     print "over75 (" + str(len(found)) + ")"
     #print found,"\n"
-    labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
-    log.write(', '.join(labels[:50]))
+    labels = [str(f[2]) for f in found]
+    log.write(','.join(labels))
     log.write('";"')
 
     found = sim[:5]
     foundDesc = found
     print "best5 (" + str(len(found)) + ")"
     #print found,"\n"
-    labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
-    log.write(', '.join(labels[:50]))
+    labels = [str(f[2]) for f in found]
+    log.write(','.join(labels))
     log.write('";"')
     
     found = sim[:10]
     print "best10 (" + str(len(found)) + ")"
     print found,"\n"
-    labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
-    log.write(', '.join(labels[:50]))
+    labels = [str(f[2]) for f in found]
+    log.write(','.join(labels))
     log.write('";"')    
 
     found = []
@@ -328,8 +453,8 @@ def descMatch(doc):
             found.append(sim[i])
     print "percent20 (" + str(len(found)) + ")"
     #print found,"\n"
-    labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
-    log.write(', '.join(labels[:50]))
+    labels = [str(f[2]) for f in found]
+    log.write(','.join(labels))
     log.write('";"')
 
     found=[]
@@ -338,10 +463,10 @@ def descMatch(doc):
             found.append(sim[i])
     print "percent10 (" + str(len(found)) + ")"
     #print found,"\n"
-    labels = [str(f[1]) + " (" + str(f[0]) + ")" for f in found]
-    log.write(', '.join(labels[:50]))
+    labels = [str(f[2]) for f in found]
+    log.write(','.join(labels))
     log.write('"\n')
-    log.close()    
+    log.close()
 
 #======================================================#
 # Scan a string, generate syns for each word           #
@@ -429,7 +554,7 @@ def vecDesc():
     cleanDesc = [cleanDoc(d[0]) for d in desc]
     bowDesc = [dictionary.doc2bow(doc) for doc in cleanDesc]
     tfidfDesc = [tfidf[d] for d in bowDesc]
-    pickle.dump(tfidfDesc,open('pickle\\tfidf.pckl','w'))
+    pickle.dump(tfidfDesc,open('vsm\\stem\\tfidf.pckl','w'))
     print "converted list desc to vectors (tfidf): vecDesc",len(tfidfDesc)
 
 #======================================================#
@@ -530,7 +655,7 @@ def wordMatchAll(lijst):
         trilist.append(line[3])
         comboList.append('. '.join(line))
     print comboList[1]
-
+    
     listWordMatch(lijst)
     os.rename('log\wordMatch.csv','log\wordMatch-literal.csv')
     print "1/24"
@@ -568,8 +693,9 @@ def wordMatchAll(lijst):
     listWordNetMatch(comboList)
     os.rename('log\wordMatch.csv','log\wordMatch-wordNet-combo.csv')
     print "12/24"    
-
+    
     # Stem
+    stemOnto(label)
     stemList(lijst)
     stemList(freqlist)
     stemList(nounlist)
@@ -713,6 +839,20 @@ def descMatchAll(lijst):
     os.rename('log\descMatch.csv','log\descMatch-wordNet-combo.csv')
     print "12/24"
 
+    dictionary = corpora.Dictionary.load('vsm\\stem\\stem-dictionary.dict')
+    print dictionary
+    corpus = corpora.MmCorpus('vsm\\stem\\stem-corpus.mm')
+    print corpus
+    tfidf = models.TfidfModel.load('vsm\\stem\\model.tfidf')
+    print tfidf
+
+    index = similarities.Similarity.load('vsm\\stem\\stem.index')
+
+    tfidfFile = open('vsm\\stem\\tfidfDesc.list','r')
+    tfidfDesc = pickle.load(tfidfFile)
+    tfidfFile.close()
+    print "TF-IDF Descriptions:",len(tfidfDesc),"\n"    
+
     stemList(lijst)
     stemList(freqlist)
     stemList(nounlist)
@@ -764,9 +904,11 @@ def createIndex():
     bowdesc = [dictionary.doc2bow(d) for d in cleandesc]
     vecdesc = tfidf[bowdesc]
 
+
+
 def buildCorpus():
     directory = "E:\\articles\\articles\\"
-    files = os.listdir("E:\\articles\\articles\\")
+    files = os.listdir(directory)
     blank = "To access the full article, please see PDF"
     for i in range(len(files)):
         doclist = []

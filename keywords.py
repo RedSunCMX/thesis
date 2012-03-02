@@ -75,7 +75,7 @@ def nGrams(string,int,clean=True):
     words = WordPunctTokenizer().tokenize(string)
     stopset = set(stopwords.words('english'))
     if clean == True:
-        words = [word.lower() for word in words if word.lower() not in stopset]
+        words = [word.lower() for word in words]
     if clean == False:
         words = [word.lower() for word in words]
     filter = lambda words: len(words) < 2 or words.isdigit()
