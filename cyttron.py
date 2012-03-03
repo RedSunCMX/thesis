@@ -269,21 +269,17 @@ def buildMatrix():
         B = 0.0
         C = 0.0
         D = 0.0
+        
         for j in range(len(algoList)):
             algoPOS = algoList[j]
             algoNEG = [item for item in URIlist if item not in algoList[j]]
             expertPOS = expertList[j]
             expertNEG = [item for item in URIlist if item not in expertList[j]]
             
-            temp1 = float(len(set(algoNEG).intersection(expertNEG)))
-            temp2 = float(len(set(algoPOS).intersection(expertNEG)))
-            temp3 = float(len(set(algoNEG).intersection(expertPOS)))
-            temp4 = float(len(set(algoPOS).intersection(expertPOS)))
-                        
-            A += temp1
-            B += temp2
-            C += temp3
-            D += temp4
+            A += float(len(set(algoNEG).intersection(expertNEG)))
+            B += float(len(set(algoPOS).intersection(expertNEG)))
+            C += float(len(set(algoNEG).intersection(expertPOS)))
+            D += float(len(set(algoPOS).intersection(expertPOS)))
 
         matrix.append([[A,B],[C,D]])
         
@@ -305,7 +301,7 @@ def buildMatrix():
         print "P",round(P,4)
         
         prList.append([files[i],AC,TP,FP,TN,FN,P])
-    # pprint(prList)
+    pprint(prList)
     pprint(matrix)
     for i in range(len(prList)):
         f = open('log\\confmatrix.csv','a')
