@@ -1,5 +1,4 @@
 from SPARQLWrapper import SPARQLWrapper,JSON
-import cyttron
 import networkx as nx
 from networkx.readwrite import json_graph
 import sqlite3
@@ -12,8 +11,6 @@ import os
 from Queue import Queue
 import json
 GR = nx.Graph()
-cyttron.fillDict()
-dicto = cyttron.labelDict
 context = []
 queue = []
 visited = []
@@ -33,6 +30,14 @@ URIx = 'http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#Brain_Lobectomy'
 URIy = 'http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#Study'
 
 log = open('pathfinderlog.txt','w')
+
+if __name__ == "__main__":
+    main()
+
+def main():
+    import cyttron
+    cyttron.fillDict()
+    dicto = cyttron.labelDict    
 
 def SemSim(URI1,URI2):
     global queue,visited,done,log,path,context
@@ -227,7 +232,7 @@ def drawGraph(nodes):
                         G.add_node(LCSnode)
                         G.node[LCSnode]['color']=color
                         G.node[LCSnode]['URI']=LCS[0][0]
-                        print "LCS","added",LCSnode
+                        print "\nLCS: added",LCSnode
                         
     def drawBFS(nodeList):
         color = '#333333'
@@ -244,9 +249,9 @@ def drawGraph(nodes):
                     parentCurr = pathList[-1][-1][-1]
                     if parentCurr == parentOth:
                         path=[]
-                        print "Trying:",otherURI,currentURI
+                        print "BFS Trying:",otherURI,currentURI
                         SemSim(otherURI,currentURI)
-                        print "Finished\n"
+                        print "BFS Finished\n"
                         for i in range(len(path)):
                             node1=str(dicto[path[i][0]])
                             if path[i][1] == 'is a':
@@ -271,19 +276,18 @@ def drawGraph(nodes):
                             G.edge[node1][node2]['label']=edge
                     else:
                         path = []
-                        print "No path possible"
+                        print "BFS No path possible"
 
     def drawParents(nodeList):
         color = '#333333'
         global path,dicto,pathList,G,LCS    
-        # Third double for-loop to go through all the parents. Draw parents.
         for i in range(len(nodeList)):
             currentURI = nodeList[i][2]
             findParents([[currentURI]])
+            CSpec = 15 - len(pathList)
+            print "PARENTS",nodeList[i][1],"has CSpec:",CSpec
             for i in range(1,len(pathList)):
                 for j in range(len(pathList[i])):
-                    print j,
-                    print pathList[i][j]
                     prevNode = str(dicto[pathList[i][j][0]])
                     node = str(dicto[pathList[i][j][1]])
                     if G.has_node(prevNode) is False:
@@ -302,7 +306,9 @@ def drawGraph(nodes):
                         G.edge[prevNode][node]['label']='subclass of'
 
     drawStart(nodes)
+    print ''
     drawLCS(nodes)
+    print ''
     drawBFS(nodes)
     drawParents(nodes)
 
@@ -511,8 +517,7 @@ def findLCS(URI1,URI2):
         findParents(LCS)
         log = open('pathfinderlog.txt','a')                            
         log.write('"LCS depth:' + str(pathList[0][0]) + '";"' + str(len(pathList)) + '"\n')
-        print "LCS (" + str(dicto[URI1]) + "," + str(dicto[URI2]) + "): ",
-        print "LCS: " + str(dicto[pathList[0][0]])
+        print "LCS: " + str(dicto[pathList[0][0]]),"(" + str(dicto[URI1]) + "," + str(dicto[URI2]) + "): "
         log.close()
     else:
         log = open('pathfinderlog.txt','a')                            
@@ -552,7 +557,10 @@ def findParents(URI):
         return pathList
 
 def findCommonParents(URI1,URI2):
-    global done,result1,result2,pathList,parent1,parent2
+    global done,result1,result2,pathList
+    result1=[]
+    result2=[]
+    pathList=[]
     done = False
     # Input URI strings, output common Parent
     URI1 = [[URI1]]
@@ -565,7 +573,6 @@ def findCommonParents(URI1,URI2):
     
     # Flush results for 2nd
     pathList = []
-
     # Second pathList generation
     findParents(URI2)
     result2 = pathList
@@ -574,10 +581,10 @@ def findCommonParents(URI1,URI2):
         for j in range(1,len(result2)):
             for i2 in range(len(result1[i])):
                 for j2 in range(len(result2[j])):
-                    if set(result1[i][i2][1]) == set(result2[j][j2][1]):
+                    if result1[i][i2][1] == result2[j][j2][1]:
                         done = True
-                        parent1 = result1
-                        parent2 = result2
                         if done == True:
+                            print "Found COMMON PARENT"
                             return result1[i][i2][1]
+    print "No COMMON PARENT"
     return 0

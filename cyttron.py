@@ -194,9 +194,14 @@ def labelToURI(string,string2):
     for i in range(len(list)):
         print revDict[list[i]]
         if list[i].lower() in string2.lower():
-            newList.append([1,list[i],revDict[list[i]],True])
+            print revDict[list[i]]
+            semsim.findParents([[revDict[list[i]]]])
+            CSpec = 15 - len(semsim.pathList)
+            newList.append([CSpec,list[i],revDict[list[i]],True])
         else:
-            newList.append([1,list[i],revDict[list[i]],False])
+            semsim.findParents([[revDict[list[i]]]])
+            CSpec = 15 - len(semsim.pathList)            
+            newList.append([CSpec,list[i],revDict[list[i]],False])
     print newList
 
 def csvToNodes():
@@ -373,10 +378,11 @@ def wordMatch(string):
         currentURI = str(label[i][1])
         string = string.lower()
         c = re.findall(r"\b"+re.escape(currentLabel)+r"\b",string)
-        countLabel = len(c)
-        if countLabel > 0:
+        if len(c)>0:
+            semsim.findParents([[currentURI]])
+            CSpec = 15 - len(semsim.pathList)
             currentLabel = labelDict[currentURI]
-            foundLabel.append([countLabel,currentLabel,currentURI])
+            foundLabel.append([CSpec,currentLabel,currentURI])
     foundLabel.sort(reverse=True)
     for i in range(len(foundLabel)):
         total += foundLabel[i][0]
@@ -405,50 +411,72 @@ def descMatch(doc):
     sim = []
     for i in range(len(sims)):
         sim.append([round(sims[i],3)+0.5,labelDict[desc[i][1]],desc[i][1]])
-
     sim = sorted(sim,reverse=True)
 
+    # Over 90%
     found = []
     for i in range(len(sim)):
         if sim[i][0]-0.5 > 0.4:
             found.append(sim[i])
-            print sim[i]
+    for i in range(len(found)):
+        semsim.findParents([[found[i][2]]])
+        CSpec = 15 - len(semsim.pathList)
+        found[i][0] = CSpec
+    print "over90 (" + str(len(found)) + ")"
+    
     labels = [str(f[2]) for f in found]
     log.write(','.join(labels))
     log.write('";"')            
 
+    # Over 75%
     found = []
     for i in range(len(sim)):
         if sim[i][0]-0.5 > 0.25:
             found.append(sim[i])
+    for i in range(len(found)):
+        semsim.findParents([[found[i][2]]])
+        CSpec = 15 - len(semsim.pathList)
+        found[i][0] = CSpec
     print "over75 (" + str(len(found)) + ")"
-    #print found,"\n"
+
     labels = [str(f[2]) for f in found]
     log.write(','.join(labels))
     log.write('";"')
 
+    # Top5
     found = sim[:5]
-    foundDesc = found
+    for i in range(len(found)):
+        semsim.findParents([[found[i][2]]])
+        CSpec = 15 - len(semsim.pathList)
+        found[i][0] = CSpec      
     print "best5 (" + str(len(found)) + ")"
-    #print found,"\n"
+
     labels = [str(f[2]) for f in found]
     log.write(','.join(labels))
     log.write('";"')
-    
+
     found = sim[:10]
+    for i in range(len(found)):
+        semsim.findParents([[found[i][2]]])
+        CSpec = 15 - len(semsim.pathList)
+        found[i][0] = CSpec
     print "best10 (" + str(len(found)) + ")"
-    print found,"\n"
+
     labels = [str(f[2]) for f in found]
     log.write(','.join(labels))
-    log.write('";"')    
+    log.write('";"')
 
     found = []
     number = sim[0][0]
     for i in range(len(sim)):
         if sim[i][0] > (0.8*number):
             found.append(sim[i])
+    for i in range(len(found)):
+        semsim.findParents([[found[i][2]]])
+        CSpec = 15 - len(semsim.pathList)
+        found[i][0] = CSpec
     print "percent20 (" + str(len(found)) + ")"
-    #print found,"\n"
+
     labels = [str(f[2]) for f in found]
     log.write(','.join(labels))
     log.write('";"')
@@ -457,8 +485,12 @@ def descMatch(doc):
     for i in range(len(sim)):
         if sim[i][0] > (0.9*number):
             found.append(sim[i])
+    for i in range(len(found)):
+        semsim.findParents([[found[i][2]]])
+        CSpec = 15 - len(semsim.pathList)
+        found[i][0] = CSpec
     print "percent10 (" + str(len(found)) + ")"
-    #print found,"\n"
+
     labels = [str(f[2]) for f in found]
     log.write(','.join(labels))
     log.write('"\n')
