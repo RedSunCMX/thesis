@@ -196,12 +196,26 @@ def labelToURI(string,string2):
         if list[i].lower() in string2.lower():
             print revDict[list[i]]
             semsim.findParents([[revDict[list[i]]]])
-            CSpec = 15 - len(semsim.pathList)
+            CSpec = len(semsim.pathList)
             newList.append([CSpec,list[i],revDict[list[i]],True])
         else:
             semsim.findParents([[revDict[list[i]]]])
-            CSpec = 15 - len(semsim.pathList)            
+            CSpec = len(semsim.pathList)            
             newList.append([CSpec,list[i],revDict[list[i]],False])
+    print newList
+
+def URItoNodes(URIs,inputText):
+    newList=[]
+    list = URIs.split(',')
+    for i in range(len(list)):
+        if list[i].lower() in inputText.lower():
+            semsim.findParents([[list[i]]])
+            CSpec = len(semsim.pathList)
+            newList.append([CSpec,labelDict[list[i]],list[i],True])
+        else:
+            semsim.findParents([[list[i]]])
+            CSpec = len(semsim.pathList)            
+            newList.append([CSpec,labelDict[list[i]],list[i],False])
     print newList
 
 def csvToNodes():
@@ -380,7 +394,7 @@ def wordMatch(string):
         c = re.findall(r"\b"+re.escape(currentLabel)+r"\b",string)
         if len(c)>0:
             semsim.findParents([[currentURI]])
-            CSpec = 15 - len(semsim.pathList)
+            CSpec = len(semsim.pathList)
             currentLabel = labelDict[currentURI]
             foundLabel.append([CSpec,currentLabel,currentURI])
     foundLabel.sort(reverse=True)
@@ -420,7 +434,7 @@ def descMatch(doc):
             found.append(sim[i])
     for i in range(len(found)):
         semsim.findParents([[found[i][2]]])
-        CSpec = 15 - len(semsim.pathList)
+        CSpec = len(semsim.pathList)
         found[i][0] = CSpec
     print "over90 (" + str(len(found)) + ")"
     
@@ -435,7 +449,7 @@ def descMatch(doc):
             found.append(sim[i])
     for i in range(len(found)):
         semsim.findParents([[found[i][2]]])
-        CSpec = 15 - len(semsim.pathList)
+        CSpec = len(semsim.pathList)
         found[i][0] = CSpec
     print "over75 (" + str(len(found)) + ")"
 
@@ -447,7 +461,7 @@ def descMatch(doc):
     found = sim[:5]
     for i in range(len(found)):
         semsim.findParents([[found[i][2]]])
-        CSpec = 15 - len(semsim.pathList)
+        CSpec = len(semsim.pathList)
         found[i][0] = CSpec      
     print "best5 (" + str(len(found)) + ")"
 
@@ -458,7 +472,7 @@ def descMatch(doc):
     found = sim[:10]
     for i in range(len(found)):
         semsim.findParents([[found[i][2]]])
-        CSpec = 15 - len(semsim.pathList)
+        CSpec = len(semsim.pathList)
         found[i][0] = CSpec
     print "best10 (" + str(len(found)) + ")"
 
@@ -473,7 +487,7 @@ def descMatch(doc):
             found.append(sim[i])
     for i in range(len(found)):
         semsim.findParents([[found[i][2]]])
-        CSpec = 15 - len(semsim.pathList)
+        CSpec = len(semsim.pathList)
         found[i][0] = CSpec
     print "percent20 (" + str(len(found)) + ")"
 
@@ -487,7 +501,7 @@ def descMatch(doc):
             found.append(sim[i])
     for i in range(len(found)):
         semsim.findParents([[found[i][2]]])
-        CSpec = 15 - len(semsim.pathList)
+        CSpec = len(semsim.pathList)
         found[i][0] = CSpec
     print "percent10 (" + str(len(found)) + ")"
 

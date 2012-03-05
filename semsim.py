@@ -31,13 +31,13 @@ URIy = 'http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#Study'
 
 log = open('pathfinderlog.txt','w')
 
-if __name__ == "__main__":
-    main()
-
 def main():
     import cyttron
     cyttron.fillDict()
-    dicto = cyttron.labelDict    
+    dicto = cyttron.labelDict   
+
+if __name__ == "__main__":
+    main()
 
 def SemSim(URI1,URI2):
     global queue,visited,done,log,path,context
@@ -166,12 +166,10 @@ def checkNodes(context,URI1,URI2):
             continue
     return path
 
-def drawGraph(nodes):
-    global path,dicto,pathList,G,LCS,contextURI
-    
-    # Default settings
+def drawGraph(nodes):   
+    global G,path,dicto,pathList,LCS,contextURI
     G = nx.DiGraph()
-
+    
     def drawStart(nodeList):
         color = '#b94431'
         global path,dicto,pathList,G,LCS        
@@ -280,11 +278,12 @@ def drawGraph(nodes):
 
     def drawParents(nodeList):
         color = '#333333'
-        global path,dicto,pathList,G,LCS    
+        global path,dicto,pathList,G,LCS
+        G.add_node('Thing')        
         for i in range(len(nodeList)):
             currentURI = nodeList[i][2]
             findParents([[currentURI]])
-            CSpec = 15 - len(pathList)
+            CSpec = len(pathList)
             print "PARENTS",nodeList[i][1],"has CSpec:",CSpec
             for i in range(1,len(pathList)):
                 for j in range(len(pathList[i])):
@@ -292,14 +291,24 @@ def drawGraph(nodes):
                     node = str(dicto[pathList[i][j][1]])
                     if G.has_node(prevNode) is False:
                         G.add_node(prevNode)
-                        G.node[prevNode]['color'] = color
+                        if i == CSpec-1:
+                            G.node[prevNode]['color'] = 'white'
+                        else:
+                            G.node[prevNode]['color'] = color
                         G.node[prevNode]['URI'] = pathList[i][j][0]
-                        G.node[prevNode]['size']=0
+                        G.node[prevNode]['size']=CSpec
                     if G.has_node(node) is False:
                         G.add_node(node)
-                        G.node[node]['color'] = color
+                        if i == CSpec-1:
+                            G.node[node]['color'] = 'white'
+                            G.add_edge(node,'Thing')
+                        else:
+                            G.node[node]['color'] = color                          
                         G.node[node]['URI']=pathList[i][j][1]
-                        G.node[node]['size']=0
+                        G.node[node]['size']=CSpec
+                    if G.has_node(node) is True and i == CSpec-1:
+                        G.add_edge(node,'Thing')
+                        
                     if G.has_edge(prevNode,node) is False:
                         G.add_edge(prevNode,node)
                         G.edge[prevNode][node]['width']=2
@@ -329,10 +338,18 @@ def drawGraph(nodes):
 
     data = json_graph.node_link_data(G)
     s = json.dumps(data)
-    print ''
+    print '\nJSON:'
     print s
-    
+    print '\nNETWORKX:'
+    print G
+
+    #G.graph['layout'] = 'neato'
+    #G.add_node('node',fontname='Arial', fontsize='8', fixedsize='true', fontcolor='black', shape='circle', penwidth='5')
+    #G.add_node('edge',color='grey', fontcolor='azure4', fontname='Arial', fontsize='7', penwidth='3')
+
     nx.write_dot(G,'file.gv')
+    os.system("gv\\bin\\dot.exe -Tpng -ograph.png file.gv")
+    print "Created graph.png"
 
 def clusterSim(nodes):
     G = nx.Graph()
@@ -358,7 +375,7 @@ def clusterSim(nodes):
             G.node[otherLabel]['URI']=nodes[j][2]
             print other
             findLCS(current,other)
-            CSpec = 15 - len(pathList)
+            CSpec = len(pathList)
             print "CSpec: ",CSpec
 
             findParents([[current]])
