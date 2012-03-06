@@ -57,7 +57,7 @@ desc = pickle.load(descFile)
 descFile.close()
 print "Descriptions:",len(desc),"\n"
 
-labelDictFile = open('pickle\\labelDict.pickle','r')
+labelDictFile = open('pickle\\labelDict.list','r')
 labelDict = pickle.load(labelDictFile)
 labelDictFile.close()
 
@@ -165,6 +165,8 @@ def fillDict():
     for i in range(len(label)):
         labelDict[label[i][1]] = label[i][0]
     print "Filled dict: labelDict. With:",str(len(labelDict)),"entries"
+
+    cPickle.dump(label,open('pickle\\labelDict.list','w'))
 
 descDict = {}
 
