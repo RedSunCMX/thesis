@@ -247,7 +247,7 @@ def buildMatrix():
     f = open('log\\confmatrix.csv','w')
     f.write('"Algorithm";"Accuracy";"True Positives";"False Positives";"True Negatives";"False Negatives";"Precision"\n')
     f.close()
-    algoDir = "log\\DEF\\"
+    algoDir = "log\\DEFDESC\\"
     expertDir = "log\\expert\\"
     URIlist = [l[1] for l in label]
     # Fill list with expert results

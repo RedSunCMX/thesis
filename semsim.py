@@ -388,12 +388,17 @@ def clusterSim(nodes):
                 semDist = math.log((Path) * (CSpec) + 1)
                 print "\nSEMANTIC DISTANCE: ",semDist
                 G.add_edge(currentLabel,otherLabel)
-                G.edge[currentLabel][otherLabel]['width']=semDist
+                G.edge[currentLabel][otherLabel]['penwidth']=semDist*4
+                G.edge[currentLabel][otherLabel]['width']=semDist*4                
+                G.edge[currentLabel][otherLabel]['label']=semDist
             else:
                 print "No parent"
     data = json_graph.node_link_data(G)
     s = json.dumps(data)
     print s
+    nx.write_dot(G,'cluster.gv')
+    os.system("gv\\bin\\dot.exe -Tpng -ocluster.png cluster.gv")
+    print "Created cluster.png"
 
 def showPath(list,start,target):
     global path
