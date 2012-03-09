@@ -42,7 +42,6 @@ def freqNouns(string,int):
             if pos[i][1] == 'NN' or pos[i][1] == 'NNP':
                 list.append(pos[i][0])
     newString = ' '.join(list).lower()
-    # print newString
     freqWords(newString,int)
 
 def freqWords(string,int):
@@ -71,7 +70,6 @@ def nGrams(string,int,clean=True):
     global wordList
     biList=[]
     triList=[]
-    # print clean
     words = WordPunctTokenizer().tokenize(string)
     stopset = set(stopwords.words('english'))
     if clean == True:

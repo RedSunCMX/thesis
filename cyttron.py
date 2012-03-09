@@ -6,25 +6,15 @@ from nltk.metrics import BigramAssocMeasures
 from nltk.corpus import stopwords, wordnet
 import re
 from SPARQLWrapper import SPARQLWrapper,JSON
-from difflib import SequenceMatcher
 from pprint import pprint
-import urllib, urllib2
-from BeautifulSoup import BeautifulSoup
 from gensim import corpora, models, similarities
 import os
 from lxml import etree
-import logging
-logging.root.setLevel(logging.INFO)
-logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
-import cProfile
 import cPickle
 import pickle
-import fuzzywuzzy
-from fuzzywuzzy import fuzz
-from xml.dom.minidom import parse, parseString
+from xml.dom.minidom import parse
 
-labelDict = {}
-descDict = {}
+import semsim
 
 stopset = set(stopwords.words('english'))
 stopset.add('http')
@@ -60,6 +50,14 @@ print "Descriptions:",len(desc),"\n"
 labelDictFile = open('pickle\\labelDict.list','r')
 labelDict = pickle.load(labelDictFile)
 labelDictFile.close()
+
+revDictFile = open('pickle\\revDict.list','r')
+revDict = pickle.load(revDictFile)
+revDictFile.close()
+
+descDictFile = open('pickle\\descDict.list','r')
+descDict = pickle.load(descDictFile)
+descDictFile.close()
 
 # sparql-lists
 bigList= []
@@ -123,6 +121,7 @@ def get(string):
 #======================================================#
 def getLabels():
     global label,sparql,endpoint
+    label = []
     print endpoint
     sparql = SPARQLWrapper(endpoint)
     sparql.addCustomParameter("infer","false")
@@ -143,6 +142,7 @@ def getLabels():
         label.append([x["label"]["value"],x["URI"]["value"]])
     print "LABEL | Filled list: label. With:",str(len(label)),"entries"
 
+    # Fetch 'Part_Of' properties
     sparql.setQuery("""
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
@@ -154,7 +154,8 @@ def getLabels():
             }""")
     results = sparql.query().convert()
     for x in results["results"]["bindings"]:
-        label.append([x["label"]["value"],x["URI"]["value"]])
+        if 'part_of' in x["label"]["value"].lower():
+            label.append([x["label"]["value"],x["URI"]["value"]])
     print "LABEL | Filled list: label. With:",str(len(label)),"entries"
 
     cPickle.dump(label,open('pickle\\label.list','w'))
@@ -168,27 +169,21 @@ def fillDict():
 
     cPickle.dump(label,open('pickle\\labelDict.list','w'))
 
-descDict = {}
-
 def fillDescDict():
     global descDict,label
+    descDict = {}
     for i in range(len(desc)):
         descDict[desc[i][1]] = desc[i][0]
-    print "Filled dict: labelDict. With:",str(len(descDict)),"entries"
+    print "Filled dict: descDict. With:",str(len(descDict)),"entries"
+    cPickle.dump(descDict,open('pickle\\descDict.list','w'))    
 
-def appendDescs():
-    global label, descDict
-    for i in range(len(label)):
-        if label[i][1] in descDict:
-            label[i].append(descDict[label[i][1]])
-
-revDict = {}
-
-def revvDict():
+def fillRevDict():
     global revDict,label
+    revDict = {}
     for i in range(len(label)):
         revDict[label[i][0]] = label[i][1]
-    print "Filled dict: labelDict. With:",str(len(revDict)),"entries"
+    print "Filled dict: revDict. With:",str(len(revDict)),"entries"
+    cPickle.dump(revDict,open('pickle\\revDict.list','w'))    
 
 def labelToURI(string,string2):
     newList=[]
@@ -231,11 +226,12 @@ def csvToNodes():
                 temp = line[1].split(',')
                 for j in range(1,len(temp)):
                     uri = str(temp[j]).replace(' ','')
+                    CSpec = len(semsim.pathList)
                     currLabel = labelDict[uri]
                     if currLabel.lower() in line[0].lower():
-                        newList.append([1,currLabel,uri,True])
+                        newList.append([CSpec,currLabel,uri,True])
                     else:
-                        newList.append([1,currLabel,uri,False])
+                        newList.append([CSpec,currLabel,uri,False])
         print newList
 
 def buildMatrix():
@@ -249,7 +245,7 @@ def buildMatrix():
     f = open('log\\confmatrix.csv','w')
     f.write('"Algorithm";"Accuracy";"True Positives";"False Positives";"True Negatives";"False Negatives";"Precision"\n')
     f.close()
-    algoDir = "log\\DEFDESC\\"
+    algoDir = "log\\DEF\\"
     expertDir = "log\\expert\\"
     URIlist = [l[1] for l in label]
     # Fill list with expert results
@@ -410,6 +406,7 @@ def wordMatch(string):
         f.write(', '.join(labels) + '"\n')
     else:
         f.write('0"\n')
+        print "Found 0 words"
     f.close()
 
 def descMatch(doc):
@@ -659,6 +656,9 @@ def listDescWordNetMatch(list):
 # Retrieve Wiki page raw text                          #
 #======================================================# 
 def wikiGet(title):
+    import urllib, urllib2
+    from BeautifulSoup import BeautifulSoup    
+
     global wikiTxt
     article = urllib.quote(title)
 
@@ -785,7 +785,7 @@ def wordMatchAll(lijst):
     print "23/24" 
     listStemWordNetMatch(comboList)
     os.rename('log\wordMatch.csv','log\wordMatch-stem-wordNet-combo.csv')
-    print "24/24" 
+    print "24/24"
 
 def stemList(sourceList):
     stemmer = nltk.PorterStemmer()

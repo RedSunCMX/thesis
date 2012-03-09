@@ -351,48 +351,52 @@ def drawGraph(nodes):
     os.system("gv\\bin\\dot.exe -Tpng -ograph.png file.gv")
     print "Created graph.png"
 
-def clusterSim(nodes):
+def clusterSim(nodes1,nodes2):
     G = nx.Graph()
-    color = "#b94431"
-    for i in range(len(nodes)):
-        current = nodes[i][2]
-        currentLabel = dicto[nodes[i][2]]
-        size = nodes[i][0]
-        G.add_node(currentLabel)
-        G.node[currentLabel]['color']=color
-        G.node[currentLabel]['size']=size
-        G.node[currentLabel]['style']='filled'
-        G.node[currentLabel]['URI']=nodes[i][2]
-        for j in range(i+1,len(nodes)):
-            print current,
-            other = nodes[j][2]
-            size = nodes[j][0]
-            otherLabel = dicto[nodes[j][2]]
-            G.add_node(otherLabel)
-            G.node[otherLabel]['color']=color
-            G.node[otherLabel]['size']=size
-            G.node[otherLabel]['style']='filled'
-            G.node[otherLabel]['URI']=nodes[j][2]
-            print other
-            findLCS(current,other)
-            CSpec = len(pathList)
-            print "CSpec: ",CSpec
-
-            findParents([[current]])
-            parentOth = pathList[-1][-1][-1]
-            findParents([[other]])
-            parentCurr = pathList[-1][-1][-1]
-            if parentCurr == parentOth:
-                SemSim(current,other)
-                Path = len(path)-1
-                semDist = math.log((Path) * (CSpec) + 1)
-                print "\nSEMANTIC DISTANCE: ",semDist
-                G.add_edge(currentLabel,otherLabel)
-                G.edge[currentLabel][otherLabel]['penwidth']=semDist*4
-                G.edge[currentLabel][otherLabel]['width']=semDist*4                
-                G.edge[currentLabel][otherLabel]['label']=semDist
+    color1 = "red"
+    color2 = "blue"
+    for i in range(len(nodes1)):
+        uri1 = nodes1[i][2]
+        label1 = dicto[nodes1[i][2]]
+        size1 = nodes1[i][0]
+        G.add_node(label1)
+        G.node[label1]['color']=color1
+        G.node[label1]['size']=size1
+        G.node[label1]['style']='filled'
+        G.node[label1]['URI']=nodes1[i][2]
+        for j in range(len(nodes2)):
+            uri2 = nodes2[j][2]
+            label2 = dicto[nodes2[j][2]]
+            size2 = nodes2[j][0]
+            print "\n",uri1
+            print uri2
+            G.add_node(label2)
+            G.node[label2]['color']=color2
+            G.node[label2]['size']=size2
+            G.node[label2]['style']='filled'
+            G.node[label2]['URI']=nodes2[j][2]
+            if uri1 != uri2:            
+                findLCS(uri1,uri2)
+                CSpec = len(pathList)
+                print "CSpec: ",CSpec
+                findParents([[uri1]])
+                parentOth = pathList[-1][-1][-1]
+                findParents([[uri2]])
+                parentCurr = pathList[-1][-1][-1]
+                
+                if parentCurr == parentOth:
+                    SemSim(uri1,uri2)
+                    Path = len(path)-1
+                    semDist = math.log((Path) * (CSpec) + 1)
+                    print "\nSEMANTIC DISTANCE: ",semDist
+                    G.add_edge(label1,label2)
+                    G.edge[label1][label2]['penwidth']=semDist*4
+                    G.edge[label1][label2]['width']=semDist*4                
+                    G.edge[label1][label2]['label']=semDist
+                else:
+                    print "No parent"
             else:
-                print "No parent"
+                print "URI1 = URI2"
     data = json_graph.node_link_data(G)
     s = json.dumps(data)
     print s
@@ -482,7 +486,7 @@ def getNodes(URI):
         for x in results["results"]["bindings"]:
             context.append([URI,"is a",x["s"]["value"]])
 
-        # X is_a URI
+        # X is a URI
         querystring="""
         PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
         SELECT DISTINCT ?o WHERE { ?o rdfs:subClassOf <""" + str(URI) + """> . FILTER (isURI(?o )) . }"""
@@ -503,7 +507,8 @@ def getNodes(URI):
         sparql.setQuery(querystring)
         results = sparql.query().convert()
         for x in results["results"]["bindings"]:
-            context.append([URI,x["p"]["value"],x["s"]["value"]])
+            if "part_of" in x["p"]["value"].lower():
+                context.append([URI,x["p"]["value"],x["s"]["value"]])
 
         # X part_of URI
         querystring="""
@@ -517,7 +522,8 @@ def getNodes(URI):
         sparql.setQuery(querystring)
         results = sparql.query().convert()
         for x in results["results"]["bindings"]:
-            context.append([x["o"]["value"],x["p"]["value"],URI])        
+            if "part_of" in x["p"]["value"].lower():            
+                context.append([x["o"]["value"],x["p"]["value"],URI])        
 
         print len(context),"neighbours (to db)"
         c = conn2.cursor()
