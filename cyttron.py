@@ -13,7 +13,6 @@ from lxml import etree
 import cPickle
 import pickle
 from xml.dom.minidom import parse
-
 import semsim
 
 stopset = set(stopwords.words('english'))
@@ -35,8 +34,22 @@ tfidfFile = open('vsm\\normal\\tfidfDesc.list','r')
 tfidfDesc = pickle.load(tfidfFile)
 tfidfFile.close()
 print "TF-IDF Descriptions:",len(tfidfDesc),"\n"
-# ---
+'''
+dictionary = corpora.Dictionary.load('vsm\\stem\\stem-dictionary.dict')
+print dictionary
+corpus = corpora.MmCorpus('vsm\\stem\\stem-corpus.mm')
+print corpus
+tfidf = models.TfidfModel.load('vsm\\stem\\stem-tfidf.model')
+print tfidf
 
+index = similarities.Similarity.load('vsm\\stem\\stem-index.index')
+
+tfidfFile = open('vsm\\stem\\tfidfDesc.list','r')
+tfidfDesc = pickle.load(tfidfFile)
+tfidfFile.close()
+print "TF-IDF Descriptions:",len(tfidfDesc),"\n"
+# ---
+'''
 labelFile = open('pickle\\label.list','r')
 label = pickle.load(labelFile)
 labelFile.close()
@@ -47,6 +60,7 @@ desc = pickle.load(descFile)
 descFile.close()
 print "Descriptions:",len(desc),"\n"
 
+labelDict={}
 labelDictFile = open('pickle\\labelDict.list','r')
 labelDict = pickle.load(labelDictFile)
 labelDictFile.close()
@@ -364,7 +378,8 @@ def getDescs():
             }""")
     results = sparql.query().convert()
     for x in results["results"]["bindings"]:
-        desc.append([x["def"]["value"],x["URI"]["value"]])
+        if 'part_of' in x["def"]["value"].lower():
+            desc.append([x["def"]["value"],x["URI"]["value"]])        
 
     print "Filled lists: desc. With:",str(len(desc)),"entries"
     cPickle.dump(desc,open('pickle\\desc.list','w'))
@@ -503,6 +518,8 @@ def descMatch(doc):
         CSpec = len(semsim.pathList)
         found[i][0] = CSpec
     print "percent10 (" + str(len(found)) + ")"
+
+    foundDesc = found
 
     labels = [str(f[2]) for f in found]
     log.write(','.join(labels))

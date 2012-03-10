@@ -20,10 +20,6 @@ conn = sqlite3.connect('db/paths.db')
 conn2 = sqlite3.connect('db/nodes.db')
 endpoint = 'http://localhost:8080/openrdf-sesame/repositories/nci'
 LCS = []
-#contextURI = 'http://dbpedia.org'
-#endpoint = 'http://dbpedia.org/sparql'
-#conn = sqlite3.connect('db/dbp.db')
-#conn2 = sqlite3.connect('db/dbpnodes.db')
 done = False
 
 URIx = 'http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#Brain_Lobectomy'
@@ -273,8 +269,54 @@ def drawGraph(nodes):
                             G.edge[node1][node2]['width']=2
                             G.edge[node1][node2]['label']=edge
                     else:
-                        path = []
-                        print "BFS No path possible"
+                        print "BFS through root"                        
+                        SemSim(currentURI,parentCurr)
+                        for i in range(len(path)):
+                            node1=str(dicto[path[i][0]])
+                            if path[i][1] == 'is a':
+                                edge=path[i][1]
+                            else:
+                                edge=str(dicto[path[i][1]])
+                            node2=str(dicto[path[i][2]])
+
+                            if G.has_node(node1) is False:
+                                G.add_node(node1)
+                                G.node[node1]['color']=color
+                                G.node[node1]['URI']=path[i][0]
+
+                            if G.has_node(node2) is False:                                    
+                                G.add_node(node2)
+                                G.node[node2]['color']=color
+                                G.node[node2]['URI']=path[i][2]
+
+                            G.add_edge(node1,node2)
+                            G.edge[node1][node2]['color']='#b94431'
+                            G.edge[node1][node2]['width']=2
+                            G.edge[node1][node2]['label']=edge
+
+                        SemSim(otherURI,parentOth)
+                        for i in range(len(path)):
+                            node1=str(dicto[path[i][0]])
+                            if path[i][1] == 'is a':
+                                edge=path[i][1]
+                            else:
+                                edge=str(dicto[path[i][1]])
+                            node2=str(dicto[path[i][2]])
+
+                            if G.has_node(node1) is False:
+                                G.add_node(node1)
+                                G.node[node1]['color']=color
+                                G.node[node1]['URI']=path[i][0]
+
+                            if G.has_node(node2) is False:                                    
+                                G.add_node(node2)
+                                G.node[node2]['color']=color
+                                G.node[node2]['URI']=path[i][2]
+
+                            G.add_edge(node1,node2)
+                            G.edge[node1][node2]['color']='#b94431'
+                            G.edge[node1][node2]['width']=2
+                            G.edge[node1][node2]['label']=edge
 
     def drawParents(nodeList):
         color = '#333333'
@@ -375,26 +417,37 @@ def clusterSim(nodes1,nodes2):
             G.node[label2]['size']=size2
             G.node[label2]['style']='filled'
             G.node[label2]['URI']=nodes2[j][2]
-            if uri1 != uri2:            
+            if uri1 != uri2:
                 findLCS(uri1,uri2)
-                CSpec = len(pathList)
-                print "CSpec: ",CSpec
+                CSpec = len(pathList)+1
+                print "CSpec:",CSpec
                 findParents([[uri1]])
-                parentOth = pathList[-1][-1][-1]
+                parent1 = pathList[-1][-1][-1]
                 findParents([[uri2]])
-                parentCurr = pathList[-1][-1][-1]
+                parent2 = pathList[-1][-1][-1]
                 
-                if parentCurr == parentOth:
+                if parent1 == parent2:
                     SemSim(uri1,uri2)
-                    Path = len(path)-1
+                    Path = len(path)
                     semDist = math.log((Path) * (CSpec) + 1)
-                    print "\nSEMANTIC DISTANCE: ",semDist
+                    print "SEMANTIC DISTANCE: ",semDist
                     G.add_edge(label1,label2)
-                    G.edge[label1][label2]['penwidth']=semDist*4
-                    G.edge[label1][label2]['width']=semDist*4                
+                    G.edge[label1][label2]['penwidth']=semDist
+                    G.edge[label1][label2]['width']=semDist               
                     G.edge[label1][label2]['label']=semDist
                 else:
-                    print "No parent"
+                    SemSim(uri1,parent1)
+                    p1 = len(path)              
+                    SemSim(uri2,parent2)
+                    p2 = len(path)
+                    Path = p1+p2+2
+                    print "Combined path:",Path
+                    semDist = math.log((Path) * (CSpec) + 1)
+                    print "SEMANTIC DISTANCE: ",semDist
+                    G.add_edge(label1,label2)
+                    G.edge[label1][label2]['penwidth']=semDist
+                    G.edge[label1][label2]['width']=semDist               
+                    G.edge[label1][label2]['label']=semDist                    
             else:
                 print "URI1 = URI2"
     data = json_graph.node_link_data(G)
@@ -538,7 +591,7 @@ def getNodes(URI):
 #======================================================#
 
 def findLCS(URI1,URI2):
-    global LCS
+    global LCS,pathList
     LCS = []
     LCS = [[findCommonParents(URI1,URI2)]]
     if LCS[0][0] != 0:
@@ -548,7 +601,7 @@ def findLCS(URI1,URI2):
         print "LCS: " + str(dicto[pathList[0][0]]),"(" + str(dicto[URI1]) + "," + str(dicto[URI2]) + "): "
         log.close()
     else:
-        log = open('pathfinderlog.txt','a')                            
+        log = open('pathfinderlog.txt','a')
         log.write('"LCS depth:-";"0"\n')
         log.close()
 
@@ -588,7 +641,6 @@ def findCommonParents(URI1,URI2):
     global done,result1,result2,pathList
     result1=[]
     result2=[]
-    pathList=[]
     done = False
     # Input URI strings, output common Parent
     URI1 = [[URI1]]
