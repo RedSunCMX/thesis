@@ -215,11 +215,11 @@ def labelToURI(string,string2):
             newList.append([CSpec,list[i],revDict[list[i]],False])
     print newList
 
-def URItoNodes(URIs,inputText):
+def URItoNodes(URIs,number):
     newList=[]
     list = URIs.split(',')
     for i in range(len(list)):
-        if list[i].lower() in inputText.lower():
+        if list[i].lower() in cyttronlist[number].lower():
             semsim.findParents([[list[i]]])
             CSpec = len(semsim.pathList)
             newList.append([CSpec,labelDict[list[i]],list[i],True])
@@ -230,7 +230,7 @@ def URItoNodes(URIs,inputText):
     print newList
 
 def csvToNodes():
-    directory = "log\\DEF\\"
+    directory = "log\\expert\\"
     files = os.listdir(directory)
     for i in range(len(files)):
         newList=[]
@@ -240,6 +240,7 @@ def csvToNodes():
                 temp = line[1].split(',')
                 for j in range(1,len(temp)):
                     uri = str(temp[j]).replace(' ','')
+                    semsim.findParents([[uri]])
                     CSpec = len(semsim.pathList)
                     currLabel = labelDict[uri]
                     if currLabel.lower() in line[0].lower():

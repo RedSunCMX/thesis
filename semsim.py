@@ -22,9 +22,6 @@ endpoint = 'http://localhost:8080/openrdf-sesame/repositories/nci'
 LCS = []
 done = False
 
-URIx = 'http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#Brain_Lobectomy'
-URIy = 'http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#Study'
-
 log = open('pathfinderlog.txt','w')
 
 def main():
@@ -162,232 +159,171 @@ def checkNodes(context,URI1,URI2):
             continue
     return path
 
-def drawGraph(nodes):   
+def drawGraph(URIlist):   
     global G,path,dicto,pathList,LCS,contextURI
     G = nx.DiGraph()
+    G.add_node('Thing')        
+    iup = 0
     
     def drawStart(nodeList):
-        color = '#b94431'
         global path,dicto,pathList,G,LCS        
         # Double for-loop to go through all nodes. Draw start nodes
         for i in range(len(nodeList)):
-            currentURI = nodeList[i][2]
+            currentURI = nodeList[i]
             for j in range(i+1,len(nodeList)):
-                    node1 = str(dicto[nodeList[j][2]])
-                    node2 = str(dicto[nodeList[i][2]])
-                    literal = nodeList[j][3]
-                    if G.has_node(node1) is False:                    
-                        if literal is True:
-                            size = nodeList[j][0]
-                            G.add_node(node1)
-                            G.node[node1]['color']=color
-                            G.node[node1]['style']='filled'
-                            G.node[node1]['size']=size
-                            G.node[node1]['URI']=nodeList[j][2]
-                            print "START","added",node1
-                        else:
-                            size = nodeList[j][0]
-                            G.add_node(node1)
-                            G.node[node1]['color']=color                            
-                            G.node[node1]['stroke']=color
-                            G.node[node1]['size']=size
-                            G.node[node1]['URI']=nodeList[j][2]
-                            print "START","added",node1                            
-                    if G.has_node(node2) is False:
-                        if literal is True:
-                            size = nodeList[i][0]                            
-                            G.add_node(node2)
-                            G.node[node2]['color']=color
-                            G.node[node2]['style']='filled'
-                            G.node[node2]['size']=size
-                            G.node[node2]['URI']=nodeList[i][2]
-                            print "START","added",node2                            
-                        else:
-                            size = nodeList[i][0]
-                            G.add_node(node2)
-                            G.node[node2]['color']=color                            
-                            G.node[node2]['stroke']=color
-                            G.node[node2]['size']=size
-                            G.node[node2]['URI']=nodeList[i][2]
-                            print "START","added",node2                            
+                    node1 = dicto[nodeList[j]]
+                    node2 = dicto[nodeList[i]]
+                    G.add_node(node1,color='#b94431')
+                    print "START","added",node1
+                    G.add_node(node2,color='#b94431')
+                    print "START","added",node2                            
 
     def drawLCS(nodeList):
-        color = '#da991c'
         global path,dicto,pathList,G,LCS        
-        # Second double for-loop to go through all the LCSes. Draw LCS.
         for i in range(len(nodeList)):
-            currentURI = nodeList[i][2]
+            currentURI = nodeList[i]
             for j in range(i+1,len(nodeList)):
-                otherURI = nodeList[j][2]
+                otherURI = nodeList[j]
                 findLCS(currentURI,otherURI)
                 if LCS[0][0] != 0:
-                    LCSnode = str(dicto[LCS[0][0]])
+                    LCSnode = dicto[LCS[0][0]]
                     if G.has_node(LCSnode) is False:
-                        G.add_node(LCSnode)
-                        G.node[LCSnode]['color']=color
-                        G.node[LCSnode]['URI']=LCS[0][0]
+                        G.add_node(LCSnode,color='#da991c')
                         print "\nLCS: added",LCSnode
                         
     def drawBFS(nodeList):
-        color = '#333333'
         global path
         path = []
         if len(nodeList) > 0:
-            for j in range(len(nodeList)):
-                currentURI = nodeList[j][2]
-                for k in range(j+1,len(nodeList)):
-                    otherURI = nodeList[k][2]
-                    findParents([[otherURI]])
-                    parentOth = pathList[-1][-1][-1]
-                    findParents([[currentURI]])
-                    parentCurr = pathList[-1][-1][-1]
-                    if parentCurr == parentOth:
-                        path=[]
-                        print "BFS Trying:",otherURI,currentURI
-                        SemSim(otherURI,currentURI)
-                        print "BFS Finished\n"
-                        for i in range(len(path)):
-                            node1=str(dicto[path[i][0]])
-                            if path[i][1] == 'is a':
-                                edge=path[i][1]
-                            else:
-                                edge=str(dicto[path[i][1]])
-                            node2=str(dicto[path[i][2]])
-
-                            if G.has_node(node1) is False:
-                                G.add_node(node1)
-                                G.node[node1]['color']=color
-                                G.node[node1]['URI']=path[i][0]
-
-                            if G.has_node(node2) is False:                                    
-                                G.add_node(node2)
-                                G.node[node2]['color']=color
-                                G.node[node2]['URI']=path[i][2]
-
-                            G.add_edge(node1,node2)
-                            G.edge[node1][node2]['color']='#b94431'
-                            G.edge[node1][node2]['width']=2
-                            G.edge[node1][node2]['label']=edge
+            for i in range(len(nodeList)):
+                node1 = nodeList[i]
+                for j in range(i+1,len(nodeList)):
+                    node2 = nodeList[j]
+                    if node1 == node2:
+                        # Same node, no need for BFS
+                        G.add_node(dicto[node1],color='#333333')
+                        print "\nNode1 = Node2!"
+                        print "BFS: added",node1
                     else:
-                        print "BFS through root"                        
-                        SemSim(currentURI,parentCurr)
-                        for i in range(len(path)):
-                            node1=str(dicto[path[i][0]])
-                            if path[i][1] == 'is a':
-                                edge=path[i][1]
+                        # Different node, find parents
+                        findParents([[node2]])
+                        if len(pathList) > 1:
+                            parent2 = pathList[-1][-1][-1]
+                        else:
+                            parent2 = pathList[0][0]
+                        findParents([[node1]])
+                        if len(pathList) > 1:
+                            parent1 = pathList[-1][-1][-1]
+                        else:
+                            parent1 = pathList[0][0]
+                            
+                        if parent1 == parent2:
+                            # Same cluster
+                            path=[]
+                            print "BFS Trying:",node1,node2
+                            SemSim(node1,node2)
+                            print "BFS Finished\n"
+                            for i in range(len(path)):
+                                nodeLeft=dicto[path[i][0]]
+                                nodeRight=dicto[path[i][2]]
+                                
+                                if path[i][1] == 'is a':
+                                    edge=path[i][1]
+                                else:
+                                    edge=dicto[path[i][1]]
+                                
+                                if G.has_node(nodeLeft) is False:
+                                    G.add_node(nodeLeft,color='#333333')
+                                    print "\nBFS: added",nodeLeft
+                                if G.has_node(nodeRight) is False:                                    
+                                    G.add_node(nodeRight,color='#333333')
+                                    print "\nBFS: added",nodeRight
+                                G.add_edge(nodeLeft,nodeRight,color='#b94431')
+                                break
+
+                        else:
+                            # Different cluster, through root
+                            print "BFS through root"
+                            print "Trying:",node1,node2
+                            print "Node1->Parent",node1,parent1
+                            if node1 == parent1:
+                                G.add_node(dicto[node1],color="#333333")
+                                G.add_edge(dicto[node1],'Thing')
+                                print "\nBFS: added",dicto[node1]
                             else:
-                                edge=str(dicto[path[i][1]])
-                            node2=str(dicto[path[i][2]])
+                                SemSim(node1,parent1)
+                                for i in range(len(path)):
+                                    nodeLeft=dicto[path[i][0]]
+                                    nodeRight=dicto[path[i][2]]                            
+                                    if path[i][1] == 'is a':
+                                        edge=path[i][1]
+                                    else:
+                                        edge=dicto[path[i][1]]
 
-                            if G.has_node(node1) is False:
-                                G.add_node(node1)
-                                G.node[node1]['color']=color
-                                G.node[node1]['URI']=path[i][0]
+                                    if G.has_node(nodeLeft) is False:
+                                        G.add_node(nodeLeft,color='#333333')
+                                        print "\nBFS: added",nodeLeft
+                                    if G.has_node(nodeRight) is False:                                    
+                                        G.add_node(nodeRight,color='#333333')
+                                        print "\nBFS: added",nodeRight
+                                    G.add_edge(nodeLeft,nodeRight,color='#b94431')
 
-                            if G.has_node(node2) is False:                                    
-                                G.add_node(node2)
-                                G.node[node2]['color']=color
-                                G.node[node2]['URI']=path[i][2]
-
-                            G.add_edge(node1,node2)
-                            G.edge[node1][node2]['color']='#b94431'
-                            G.edge[node1][node2]['width']=2
-                            G.edge[node1][node2]['label']=edge
-
-                        SemSim(otherURI,parentOth)
-                        for i in range(len(path)):
-                            node1=str(dicto[path[i][0]])
-                            if path[i][1] == 'is a':
-                                edge=path[i][1]
+                            if node2 == parent2:
+                                G.add_node(dicto[node2],color="#333333")
+                                G.add_edge(dicto[node2],'Thing')
+                                print "\nBFS: added",dicto[node2]
                             else:
-                                edge=str(dicto[path[i][1]])
-                            node2=str(dicto[path[i][2]])
+                                SemSim(node2,parent2)
+                                for i in range(len(path)):
+                                    nodeLeft=dicto[path[i][0]]
+                                    nodeRight=dicto[path[i][2]]                            
+                                    if path[i][1] == 'is a':
+                                        edge=path[i][1]
+                                    else:
+                                        edge=dicto[path[i][1]]
 
-                            if G.has_node(node1) is False:
-                                G.add_node(node1)
-                                G.node[node1]['color']=color
-                                G.node[node1]['URI']=path[i][0]
-
-                            if G.has_node(node2) is False:                                    
-                                G.add_node(node2)
-                                G.node[node2]['color']=color
-                                G.node[node2]['URI']=path[i][2]
-
-                            G.add_edge(node1,node2)
-                            G.edge[node1][node2]['color']='#b94431'
-                            G.edge[node1][node2]['width']=2
-                            G.edge[node1][node2]['label']=edge
+                                    if G.has_node(nodeLeft) is False:
+                                        G.add_node(nodeLeft)
+                                        print "\nBFS: added",nodeLeft
+                                    if G.has_node(nodeRight) is False:                                    
+                                        G.add_node(nodeRight)
+                                        print "\nBFS: added",nodeRight
+                                    G.add_edge(nodeLeft,nodeRight,color='#b94431')
 
     def drawParents(nodeList):
-        color = '#333333'
         global path,dicto,pathList,G,LCS
-        G.add_node('Thing')        
         for i in range(len(nodeList)):
-            currentURI = nodeList[i][2]
+            currentURI = nodeList[i]
             findParents([[currentURI]])
             CSpec = len(pathList)
-            print "PARENTS",nodeList[i][1],"has CSpec:",CSpec
             for i in range(1,len(pathList)):
                 for j in range(len(pathList[i])):
-                    prevNode = str(dicto[pathList[i][j][0]])
-                    node = str(dicto[pathList[i][j][1]])
+                    prevNode = dicto[pathList[i][j][0]]
+                    node = dicto[pathList[i][j][1]]
                     if G.has_node(prevNode) is False:
-                        G.add_node(prevNode)
-                        if i == CSpec-1:
-                            G.node[prevNode]['color'] = 'white'
-                        else:
-                            G.node[prevNode]['color'] = color
-                        G.node[prevNode]['URI'] = pathList[i][j][0]
-                        G.node[prevNode]['size']=CSpec
+                        G.add_node(prevNode,color='#333333')
+                        print "\nParents: added",prevNode
                     if G.has_node(node) is False:
-                        G.add_node(node)
-                        if i == CSpec-1:
-                            G.node[node]['color'] = 'white'
-                            G.add_edge(node,'Thing')
-                        else:
-                            G.node[node]['color'] = color                          
-                        G.node[node]['URI']=pathList[i][j][1]
-                        G.node[node]['size']=CSpec
+                        G.add_node(node,color='#333333')
+                        print "\nParents: added",node
                     if G.has_node(node) is True and i == CSpec-1:
                         G.add_edge(node,'Thing')
-                        
                     if G.has_edge(prevNode,node) is False:
                         G.add_edge(prevNode,node)
-                        G.edge[prevNode][node]['width']=2
-                        G.edge[prevNode][node]['label']='subclass of'
 
-    drawStart(nodes)
+
+    drawLCS(URIlist)
     print ''
-    drawLCS(nodes)
+    drawBFS(URIlist)
+    print ''    
+    drawParents(URIlist)
     print ''
-    drawBFS(nodes)
-    drawParents(nodes)
-
-    # Attributes
-    colorlist=[]
-    for i in G.node.items():
-        if 'color' in i[1]:
-            colorlist.append(i[1]['color'])
-        else:
-            colorlist.append('white')
-
-    sizelist=[]
-    for i in G.node.items():
-        if 'size' in i[1]:
-            sizelist.append(i[1]['size'])
-        else:
-            sizelist.append(1)
+    drawStart(URIlist)
 
     data = json_graph.node_link_data(G)
     s = json.dumps(data)
     print '\nJSON:'
     print s
-    print '\nNETWORKX:'
-    print G
-
-    #G.graph['layout'] = 'neato'
-    #G.add_node('node',fontname='Arial', fontsize='8', fixedsize='true', fontcolor='black', shape='circle', penwidth='5')
-    #G.add_node('edge',color='grey', fontcolor='azure4', fontname='Arial', fontsize='7', penwidth='3')
 
     nx.write_dot(G,'file.gv')
     os.system("gv\\bin\\dot.exe -Tpng -ograph.png file.gv")
@@ -458,17 +394,20 @@ def clusterSim(nodes1,nodes2):
     print "Created cluster.png"
 
 def showPath(list,start,target):
-    global path
+    global path,dicto
     GR = nx.Graph()
     
     for x in range(len(list),0,-1):
             hop = list[x-1]
             for i in range(len(hop)):
-                leftNode = hop[i][0]
-                rightNode = hop[i][2]
-                GR.add_node(leftNode)
-                GR.add_node(rightNode)
-                GR.add_edge(leftNode,rightNode)
+                if len(hop[i]) == 3:
+                    leftNode = hop[i][0]
+                    rightNode = hop[i][2]
+                    GR.add_node(leftNode)
+                    GR.add_node(rightNode)
+                    GR.add_edge(leftNode,rightNode)
+                else:
+                    GR.add_node(hop[i])
 
     print "Drawn Graph: GR"
     spath = (nx.shortest_path(GR,source=start,target=target))
