@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import os
 from Queue import Queue
 import json
+
 GR = nx.Graph()
 context = []
 queue = []
@@ -33,7 +34,7 @@ if __name__ == "__main__":
     main()
 
 def SemSim(URI1,URI2):
-    global queue,visited,done,log,path,context
+    global queue,visited,done,log,path,pathlength,context
     G = nx.DiGraph()
     q = Queue()
     path=[]
@@ -94,7 +95,6 @@ def SemSim(URI1,URI2):
                     # THIS IS BFS
                     node1 = curr_path[i][0]
                     node2 = curr_path[i][2]
-                    #print "\nSemSim | START BFS:\t",dicto[node1],"->",dicto[node2]
                     if node1 not in visited:
                         node = node1
                         visited.append(node)
@@ -329,63 +329,66 @@ def drawGraph(URIlist):
     os.system("gv\\bin\\dot.exe -Tpng -ograph.png file.gv")
     print "Created graph.png"
 
+def measureDistance(node1,node2):
+    "Leacock & Chodorow's semantic similarity measure"
+    global path,pathlength
+    if node1 != node2:
+        findParents([[node1]])
+        if len(pathList) > 1:
+            parent1 = pathList[-1][-1][-1]
+        else:
+            parent1 = pathList[-1][-1]
+        findParents([[node2]])
+        if len(pathList) > 1:
+            parent2 = pathList[-1][-1][-1]
+        else:
+            parent2 = pathList[-1][-1]
+        if parent1 == parent2:
+            print "Both nodes in same cluster"
+            SemSim(node1,node2)
+            semDist = -math.log((float(pathlength+1)) / float(30))
+            print semDist,'\n'
+            return semDist
+        else:
+            print "Nodes from different clusters, via root"
+            SemSim(node1,parent1)
+            length1 = pathlength+1
+            SemSim(node2,parent2)
+            length2 = pathlength+1
+            length = length1+length2+1
+            print length1,"+",length2,"=",length1+length2
+            semDist = -math.log((float(length1 + length2)) / float(30))
+            print semDist,'\n'
+            return semDist
+    else:
+        print "node1 == node2"
+        semDist = -math.log((float(1)) / float(30))
+        return semDist
+
 def clusterSim(nodes1,nodes2):
     G = nx.Graph()
+    
     color1 = "red"
     color2 = "blue"
     for i in range(len(nodes1)):
-        uri1 = nodes1[i][2]
-        label1 = dicto[nodes1[i][2]]
-        size1 = nodes1[i][0]
-        G.add_node(label1)
-        G.node[label1]['color']=color1
-        G.node[label1]['size']=size1
-        G.node[label1]['style']='filled'
-        G.node[label1]['URI']=nodes1[i][2]
+        uri1 = nodes1[i]
+        label1 = dicto[nodes1[i]]
         for j in range(len(nodes2)):
-            uri2 = nodes2[j][2]
-            label2 = dicto[nodes2[j][2]]
-            size2 = nodes2[j][0]
-            print "\n",uri1
-            print uri2
+            uri2 = nodes2[j]
+            label2 = dicto[nodes2[j]]
+
+            distance = measureDistance(uri1,uri2)
+            G.add_node(label1)
+            G.node[label1]['color']=color1
+            G.node[label1]['URI']=uri1
+            
             G.add_node(label2)
             G.node[label2]['color']=color2
-            G.node[label2]['size']=size2
-            G.node[label2]['style']='filled'
-            G.node[label2]['URI']=nodes2[j][2]
-            if uri1 != uri2:
-                findLCS(uri1,uri2)
-                CSpec = len(pathList)+1
-                print "CSpec:",CSpec
-                findParents([[uri1]])
-                parent1 = pathList[-1][-1][-1]
-                findParents([[uri2]])
-                parent2 = pathList[-1][-1][-1]
-                
-                if parent1 == parent2:
-                    SemSim(uri1,uri2)
-                    Path = len(path)
-                    semDist = math.log((Path) * (CSpec) + 1)
-                    print "SEMANTIC DISTANCE: ",semDist
-                    G.add_edge(label1,label2)
-                    G.edge[label1][label2]['penwidth']=semDist
-                    G.edge[label1][label2]['width']=semDist               
-                    G.edge[label1][label2]['label']=semDist
-                else:
-                    SemSim(uri1,parent1)
-                    p1 = len(path)              
-                    SemSim(uri2,parent2)
-                    p2 = len(path)
-                    Path = p1+p2+2
-                    print "Combined path:",Path
-                    semDist = math.log((Path) * (CSpec) + 1)
-                    print "SEMANTIC DISTANCE: ",semDist
-                    G.add_edge(label1,label2)
-                    G.edge[label1][label2]['penwidth']=semDist
-                    G.edge[label1][label2]['width']=semDist               
-                    G.edge[label1][label2]['label']=semDist                    
-            else:
-                print "URI1 = URI2"
+            G.node[label2]['URI']=uri2
+            
+            G.add_edge(label1,label2)
+            G.edge[label1][label2]['label']=distance            
+            
     data = json_graph.node_link_data(G)
     s = json.dumps(data)
     print s
@@ -540,6 +543,7 @@ def findLCS(URI1,URI2):
         print "LCS: " + str(dicto[pathList[0][0]]),"(" + str(dicto[URI1]) + "," + str(dicto[URI2]) + "): "
         log.close()
     else:
+        print "No LCS"
         log = open('pathfinderlog.txt','a')
         log.write('"LCS depth:-";"0"\n')
         log.close()
@@ -568,6 +572,7 @@ def findParents(URI):
             results = sparql.query().convert()
             for x in results["results"]["bindings"]:
                 list_out.append((URI[iup-1][i][1],x["super"]["value"]))
+                
     if len(list_out) > 0:
         URI.append(list_out)
         findParents(URI)
