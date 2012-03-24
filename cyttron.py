@@ -84,6 +84,7 @@ cyttronKeywords = []
 wikiKeywords = []
 
 cyttronlist = []
+cyttronAll = []
 csvList = []
 
 wikilist=[]
@@ -97,17 +98,12 @@ endpoint="http://localhost:8080/openrdf-sesame/repositories/" + repo
 
 sparql = SPARQLWrapper(endpoint)
 
-wikiTxt=""
-
 f = open('log\wordMatch.csv','w')
-f.write('"string";"labels"'+ "\n")
 f.close()
 
 fd = open('log\descMatch.csv','w')
-fd.write('"string";"over90";"over75";"best5";"best10";"20percent";"10percent"'+ "\n")
 fd.close()
 
-csvread = csv.reader(open('db\cyttron-selection.csv', 'rb'), delimiter=';')
 pub=[]
 group=[]
 priv=[]
@@ -199,34 +195,14 @@ def fillRevDict():
     print "Filled dict: revDict. With:",str(len(revDict)),"entries"
     cPickle.dump(revDict,open('pickle\\revDict.list','w'))    
 
-def labelToURI(string,string2):
-    newList=[]
-    list = string.split(',')
-    for i in range(len(list)):
-        print revDict[list[i]]
-        if list[i].lower() in string2.lower():
-            print revDict[list[i]]
-            semsim.findParents([[revDict[list[i]]]])
-            CSpec = len(semsim.pathList)
-            newList.append([CSpec,list[i],revDict[list[i]],True])
-        else:
-            semsim.findParents([[revDict[list[i]]]])
-            CSpec = len(semsim.pathList)            
-            newList.append([CSpec,list[i],revDict[list[i]],False])
-    print newList
-
 def URItoNodes(URIs,number):
     newList=[]
     list = URIs.split(',')
     for i in range(len(list)):
-        if list[i].lower() in cyttronlist[number].lower():
-            semsim.findParents([[list[i]]])
-            CSpec = len(semsim.pathList)
-            newList.append([CSpec,labelDict[list[i]],list[i],True])
+        if labelDict[list[i]].lower() in cyttronlist[number].lower():
+            newList.append([list[i],True])
         else:
-            semsim.findParents([[list[i]]])
-            CSpec = len(semsim.pathList)            
-            newList.append([CSpec,labelDict[list[i]],list[i],False])
+            newList.append([list[i],False])
     print newList
 
 def csvToNodes():
@@ -240,13 +216,11 @@ def csvToNodes():
                 temp = line[1].split(',')
                 for j in range(1,len(temp)):
                     uri = str(temp[j]).replace(' ','')
-                    semsim.findParents([[uri]])
-                    CSpec = len(semsim.pathList)
                     currLabel = labelDict[uri]
                     if currLabel.lower() in line[0].lower():
-                        newList.append([CSpec,currLabel,uri,True])
+                        newList.append([uri,True])
                     else:
-                        newList.append([CSpec,currLabel,uri,False])
+                        newList.append([uri,False])
         print newList
 
 def buildMatrix():
@@ -393,33 +367,22 @@ def wordMatch(string):
     total = 0
     global label,foundLabel,f,labelDict
     foundLabel=[]
-    foundTotal=[]
-    foundUnique=[]
-    sortFreq=[]
     f = open('log\wordMatch.csv','a')
     f.write('"' + string + '";"')
     f.close()
 
     for i in range(len(label)):
-        labelString = label[i][0].encode('utf-8')
-        currentLabel = labelString.lower()
+        currentLabel = label[i][0].encode('utf-8').lower()
         currentURI = str(label[i][1])
         string = string.lower()
         c = re.findall(r"\b"+re.escape(currentLabel)+r"\b",string)
         if len(c)>0:
-            semsim.findParents([[currentURI]])
-            CSpec = len(semsim.pathList)
-            currentLabel = labelDict[currentURI]
-            foundLabel.append([CSpec,currentLabel,currentURI])
-    foundLabel.sort(reverse=True)
-    for i in range(len(foundLabel)):
-        total += foundLabel[i][0]
+            foundLabel.append(currentURI)
 
     f = open('log\wordMatch.csv','a')
     if len(foundLabel) > 0:
         print "Found",len(foundLabel),"words"
-        labels = [found[2] for found in foundLabel]
-        f.write(', '.join(labels) + '"\n')
+        f.write(','.join(foundLabel) + '"\n')
     else:
         f.write('0"\n')
         print "Found 0 words"
@@ -439,91 +402,57 @@ def descMatch(doc):
     sims = index[tfidfString]
     sim = []
     for i in range(len(sims)):
-        sim.append([round(sims[i],3)+0.5,labelDict[desc[i][1]],desc[i][1]])
+        sim.append([round(sims[i],3)+0.5,desc[i][1]])
     sim = sorted(sim,reverse=True)
 
     # Over 90%
     found = []
     for i in range(len(sim)):
         if sim[i][0]-0.5 > 0.4:
-            found.append(sim[i])
-    for i in range(len(found)):
-        semsim.findParents([[found[i][2]]])
-        CSpec = len(semsim.pathList)
-        found[i][0] = CSpec
+            found.append(sim[i][1])
     print "over90 (" + str(len(found)) + ")"
-    
-    labels = [str(f[2]) for f in found]
-    log.write(','.join(labels))
+    log.write(','.join(found))
     log.write('";"')            
 
     # Over 75%
     found = []
     for i in range(len(sim)):
         if sim[i][0]-0.5 > 0.25:
-            found.append(sim[i])
-    for i in range(len(found)):
-        semsim.findParents([[found[i][2]]])
-        CSpec = len(semsim.pathList)
-        found[i][0] = CSpec
+            found.append(sim[i][1])
     print "over75 (" + str(len(found)) + ")"
-
-    labels = [str(f[2]) for f in found]
-    log.write(','.join(labels))
-    log.write('";"')
+    log.write(','.join(found))
+    log.write('";"')    
 
     # Top5
     found = sim[:5]
-    for i in range(len(found)):
-        semsim.findParents([[found[i][2]]])
-        CSpec = len(semsim.pathList)
-        found[i][0] = CSpec      
     print "best5 (" + str(len(found)) + ")"
-
-    labels = [str(f[2]) for f in found]
-    log.write(','.join(labels))
-    log.write('";"')
+    uris = [str(f[1]) for f in found]
+    log.write(','.join(uris))
+    log.write('";"')    
 
     found = sim[:10]
-    for i in range(len(found)):
-        semsim.findParents([[found[i][2]]])
-        CSpec = len(semsim.pathList)
-        found[i][0] = CSpec
     print "best10 (" + str(len(found)) + ")"
-
-    labels = [str(f[2]) for f in found]
-    log.write(','.join(labels))
-    log.write('";"')
+    uris = [str(f[1]) for f in found]
+    log.write(','.join(uris))
+    log.write('";"')    
 
     found = []
     number = sim[0][0]
     for i in range(len(sim)):
         if sim[i][0] > (0.8*number):
-            found.append(sim[i])
-    for i in range(len(found)):
-        semsim.findParents([[found[i][2]]])
-        CSpec = len(semsim.pathList)
-        found[i][0] = CSpec
+            found.append(sim[i][1])
     print "percent20 (" + str(len(found)) + ")"
-
-    labels = [str(f[2]) for f in found]
-    log.write(','.join(labels))
-    log.write('";"')
+    log.write(','.join(found))
+    log.write('";"')    
 
     found=[]
     for i in range(len(sim)):
         if sim[i][0] > (0.9*number):
             found.append(sim[i])
-    for i in range(len(found)):
-        semsim.findParents([[found[i][2]]])
-        CSpec = len(semsim.pathList)
-        found[i][0] = CSpec
     print "percent10 (" + str(len(found)) + ")"
 
     foundDesc = found
-
-    labels = [str(f[2]) for f in found]
-    log.write(','.join(labels))
+    log.write(','.join(found))
     log.write('"\n')
     log.close()
 
@@ -670,29 +599,6 @@ def listDescWordNetMatch(list):
         descWordNetMatch(string)
         print ""
 
-#======================================================#
-# Retrieve Wiki page raw text                          #
-#======================================================# 
-def wikiGet(title):
-    import urllib, urllib2
-    from BeautifulSoup import BeautifulSoup    
-
-    global wikiTxt
-    article = urllib.quote(title)
-
-    opener = urllib2.build_opener()
-    opener.addheaders = [('User-agent', 'Mozilla/5.0')] #wikipedia needs this
-
-    resource = opener.open("http://en.wikipedia.org/wiki/" + article)
-    data = resource.read()
-    resource.close()
-    soup = BeautifulSoup(data)
-    text = str(soup.findAll('p'))
-    wikiTxt = nltk.clean_html(text)
-    wikiTxt = wikiTxt.replace(';','')
-    wikiTxt = wikiTxt.decode('utf-8')
-    print title,'in wikiTxt'
-
 # Read cyttron csv and create list
 def cyttron(listname):
     f = csv.reader(open('db\cyttron-selection.csv', 'rb'), delimiter=';')
@@ -700,9 +606,16 @@ def cyttron(listname):
         listname.append(line[0])
     print len(listname)
 
+def cyttronCorpus(listname):
+    f = csv.reader(open('db\cyttron-clean.csv', 'rb'), delimiter=';')
+    for line in f:
+        listname.append(line[0])
+    print len(listname)
+
 def wordMatchAll(lijst):
     import keywords
-    keywords.extractKeywords(lijst,20)
+    global cyttronAll
+    keywords.extractKeywords(lijst,cyttronAll,20)
     freqlist = []
     nounlist = []
     bilist = []
@@ -966,8 +879,6 @@ def createIndex():
     bowdesc = [dictionary.doc2bow(d) for d in cleandesc]
     vecdesc = tfidf[bowdesc]
 
-
-
 def buildCorpus():
     directory = "E:\\articles\\articles\\"
     files = os.listdir(directory)
@@ -994,19 +905,10 @@ def buildCorpus():
     print 'Finished'
 
 def main():
-    global cyttronlist,wikilist,cyttronKeywords,wikiKeywords
+    global cyttronlist,cyttronAll,cyttronKeywords
     cyttronlist = []
     cyttron(cyttronlist)
-    '''
-    wikiGet('Alzheimer')
-    wikilist.append(wikiTxt)
-    wikiGet('Apoptosis')
-    wikilist.append(wikiTxt)
-    wikiGet('Tau protein')
-    wikilist.append(wikiTxt)
-    wikiGet('Zebrafish')
-    wikilist.append(wikiTxt) 
-    print len(wikilist)
-    '''
+    cyttronCorpus(cyttronAll)
+    
 if __name__ == '__main__':
     main()

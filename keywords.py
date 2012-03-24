@@ -6,6 +6,7 @@ from nltk.metrics import BigramAssocMeasures,TrigramAssocMeasures
 from nltk.chunk import RegexpParser
 import csv
 from pprint import pprint
+from nltk import TextCollection
 
 csvwrite = file('db\cyttron-keywords.csv', 'wb')
 bigramList = []
@@ -13,27 +14,37 @@ trigramList = []
 wordList = []
 
 # Extract wordFreq,bi/tri-grams. Store them in CSV
-def extractKeywords(list,nr):
-    csv = open('db\cyttron-keywords.csv','a')
-    csv.write('"keywords";"keynouns";"bigrams";"trigrams"\n')
-    csv.close()
-    for i in range(len(list)):
-        currentEntry = list[i]
-        freqWords(currentEntry,nr)
-        freqNouns(currentEntry,nr)
-        nGrams(currentEntry,nr,clean=True)
+def extractKeywords(selection,corpus,nr):
+    csv = open('db\cyttron-keywords.csv','w')
+    cyttronCorpus = TextCollection(corpus)
+    for i in range(len(selection)):
+        currentEntry = selection[i].lower()
+        freqWords(currentEntry,cyttronCorpus,nr)
+        freqNouns(currentEntry,cyttronCorpus,nr)
+        nGrams(currentEntry,cyttronCorpus,nr,clean=True)
     csv.close()
 
-def descKeywords(list):
-    for i in range(len(list)):
-        currentEntry = str(list[i][0])
-        # print currentEntry
-        freqWords(currentEntry,25)
-        nGrams(currentEntry)
-        print " "
+def freqWords(string,corpus,number):
+    global pub,wordList
+    wordList=[]
+    stopset = set(stopwords.words('english'))
+    words = WordPunctTokenizer().tokenize(string)
+    wordsCleaned = [word.lower() for word in words if word.lower() not in stopset and len(word) > 2 ]
+    for i in range(len(wordsCleaned)):
+        wordList.append((corpus.tf_idf(wordsCleaned[i],string),wordsCleaned[i]))
+    wordList = list(set(wordList))
+    wordList = sorted(wordList,reverse=True)
+    final = [word[1] for word in wordList[:number]]
+    csv = open('db\cyttron-keywords.csv','a')
+    if len(final) > 1:
+        csv.write('"' + ','.join(final[:-1]) + ',' + final[-1] + '";')
+    else:
+        csv.write('"' + ''.join(final) + '";')
+    csv.close()
+    return final
 
 # String-functions
-def freqNouns(string,int):
+def freqNouns(string,corpus,number):
     list=[]
     words = WordPunctTokenizer().tokenize(string)
     pos = nltk.pos_tag(words)
@@ -42,31 +53,9 @@ def freqNouns(string,int):
             if pos[i][1] == 'NN' or pos[i][1] == 'NNP':
                 list.append(pos[i][0])
     newString = ' '.join(list).lower()
-    freqWords(newString,int)
+    freqWords(newString,corpus,number)
 
-def freqWords(string,int):
-    global pub,wordList
-    wordList=[]
-    stopset = set(stopwords.words('english'))
-    words = WordPunctTokenizer().tokenize(string)
-    wordsCleaned = [word.lower() for word in words if word.lower() not in stopset and len(word) > 2 ]
-    fdist = FreqDist(wordsCleaned).keys()
-    if len(wordsCleaned) < int:
-        int = len(wordsCleaned)-1
-    if int > 0:
-        for j in range(1,int):
-            word = fdist[j-1:j]
-            if len(word) > 0:
-                wordList.append(word[0])
-    csv = open('db\cyttron-keywords.csv','a')
-    if len(wordList) > 1:
-        csv.write('"' + ', '.join(wordList[:-1]) + ', ' + wordList[-1] + '";')
-    else:
-        csv.write('"' + ''.join(wordList) + '";')
-    csv.close()
-    return wordList
-
-def nGrams(string,int,clean=True):
+def nGrams(string,corpus,number,clean=True):
     global wordList
     biList=[]
     triList=[]
@@ -80,11 +69,11 @@ def nGrams(string,int,clean=True):
     
     bcf = BigramCollocationFinder.from_words(words)
     bcf.apply_word_filter(filter)
-    biResult = bcf.nbest(BigramAssocMeasures.likelihood_ratio, int)
+    biResult = bcf.nbest(BigramAssocMeasures.likelihood_ratio, number)
 
     tcf = TrigramCollocationFinder.from_words(words)
     tcf.apply_word_filter(filter)
-    triResult = tcf.nbest(TrigramAssocMeasures.likelihood_ratio, int)
+    triResult = tcf.nbest(TrigramAssocMeasures.likelihood_ratio, number)
 
     for i in range(len(biResult)):
         if len(biResult) > 0:
@@ -94,7 +83,7 @@ def nGrams(string,int,clean=True):
             biList=[]
     csv = open('db\cyttron-keywords.csv','a')            
     if len(biList) > 1:
-        csv.write('"' + ', '.join(biList[:-1]) + ', ' + biList[-1] + '";')
+        csv.write('"' + ','.join(biList[:-1]) + ',' + biList[-1] + '";')
     else:
         csv.write('"' + ''.join(biList) + '";')
     csv.close()
@@ -107,7 +96,9 @@ def nGrams(string,int,clean=True):
             triList=[]
     csv = open('db\cyttron-keywords.csv','a')
     if len(triList) > 1:
-        csv.write('"' + ', '.join(triList[:-1]) + ', ' + triList[-1] + '"\n')
+        csv.write('"' + ','.join(triList[:-1]) + ',' + triList[-1] + '"\n')
     else:
         csv.write('"' + ''.join(triList) + '"\n')
     csv.close()
+    print biList
+    print triList

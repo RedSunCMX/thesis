@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import os
 from Queue import Queue
 import json
+import csv
 
 GR = nx.Graph()
 context = []
@@ -22,10 +23,10 @@ conn2 = sqlite3.connect('db/nodes.db')
 endpoint = 'http://localhost:8080/openrdf-sesame/repositories/nci'
 LCS = []
 done = False
-
-log = open('pathfinderlog.txt','w')
+dicto = {}
 
 def main():
+    global dicto
     import cyttron
     cyttron.fillDict()
     dicto = cyttron.labelDict   
@@ -33,7 +34,7 @@ def main():
 if __name__ == "__main__":
     main()
 
-def SemSim(URI1,URI2):
+def pathFinder(URI1,URI2):
     global queue,visited,done,log,path,pathlength,context
     G = nx.DiGraph()
     q = Queue()
@@ -58,10 +59,7 @@ def SemSim(URI1,URI2):
         target = result[0][1]
         pathlength = result[0][2]
         path = eval(result[0][3])
-        print "SemSim | pathlength:",pathlength
-        log = open('pathfinderlog.txt','a')
-        log.write('"pathlength";"' + str(pathlength) + '"\n')
-        log.close()
+        print "pathFinder | pathlength:",pathlength
         done = True
 
     # If it's not, start BFS algorithm
@@ -78,14 +76,13 @@ def SemSim(URI1,URI2):
                 if len(curr_path) == 1 and len(curr_path[0])>3:
                     # If current path is a single URI, means 1st cycle
                     node = curr_path[0]
-                    print "SemSim | Start node:",node
+                    print "pathFinder | Start node:",node
                     visited.append(node)
                     getNodes(node)
                     q.put(context)
                     # context in, path out
                     checkNodes(context,start,target)
                     if len(path) > 0:
-                        # print "SemSim |",path
                         path=[]
                         q.empty()
                         return "Done"
@@ -98,7 +95,7 @@ def SemSim(URI1,URI2):
                     if node1 not in visited:
                         node = node1
                         visited.append(node)
-                        print "GET NEIGHBOURS:\t",node
+                        # print "GET NEIGHBOURS:\t",node
                         getNodes(node)
                         checkNodes(context,start,target)
                         if len(path) > 0:
@@ -110,7 +107,7 @@ def SemSim(URI1,URI2):
                     elif node2 not in visited:
                         node = node2
                         visited.append(node)
-                        print "GET NEIGHBOURS:\t",node
+                        # print "GET NEIGHBOURS:\t",node
                         getNodes(node)
                         checkNodes(context,start,target)
                         if len(path) > 0:
@@ -140,9 +137,6 @@ def checkNodes(context,URI1,URI2):
             done = False
 
         if done == True:
-            log = open('pathfinderlog.txt','a')                            
-            log.write('"pathlength";"' + str(len(path)) + '"\n')
-            log.close()
             print "checkNodes | Found a path! Length:",str(len(path)),"| Visited:",str(len(visited)),"nodes."
             c = conn.cursor()
             c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(URI1,URI2))
@@ -153,7 +147,6 @@ def checkNodes(context,URI1,URI2):
                 c.execute('insert into thesis values (?,?,?,?)',(URI1,URI2,len(path),str(path)))
                 conn.commit()
             c.close()
-            findFlips(path,URI1,URI2)
             return path
         else:
             continue
@@ -169,13 +162,25 @@ def drawGraph(URIlist):
         global path,dicto,pathList,G,LCS        
         # Double for-loop to go through all nodes. Draw start nodes
         for i in range(len(nodeList)):
-            currentURI = nodeList[i]
             for j in range(i+1,len(nodeList)):
+                    uri1 = nodeList[j]
                     node1 = dicto[nodeList[j]]
+                    findParents([[uri1]])
+                    depth1 = len(pathList)
+
+                    uri2 = nodeList[i]
                     node2 = dicto[nodeList[i]]
+                    findParents([[uri2]])
+                    depth2 = len(pathList)
+                    
                     G.add_node(node1,color='#b94431')
+                    G.node[node1]['size']=depth1
+                    G.node[node1]['URI']=uri1
                     print "START","added",node1
+                    
                     G.add_node(node2,color='#b94431')
+                    G.node[node2]['size']=depth2
+                    G.node[node2]['URI']=uri2
                     print "START","added",node2                            
 
     def drawLCS(nodeList):
@@ -221,17 +226,16 @@ def drawGraph(URIlist):
                             # Same cluster
                             path=[]
                             print "BFS Trying:",node1,node2
-                            SemSim(node1,node2)
+                            pathFinder(node1,node2)
                             print "BFS Finished\n"
                             for i in range(len(path)):
                                 nodeLeft=dicto[path[i][0]]
                                 nodeRight=dicto[path[i][2]]
-                                
+
                                 if path[i][1] == 'is a':
                                     edge=path[i][1]
                                 else:
                                     edge=dicto[path[i][1]]
-                                
                                 if G.has_node(nodeLeft) is False:
                                     G.add_node(nodeLeft,color='#333333')
                                     print "\nBFS: added",nodeLeft
@@ -239,7 +243,6 @@ def drawGraph(URIlist):
                                     G.add_node(nodeRight,color='#333333')
                                     print "\nBFS: added",nodeRight
                                 G.add_edge(nodeLeft,nodeRight,color='#b94431')
-                                break
 
                         else:
                             # Different cluster, through root
@@ -251,10 +254,11 @@ def drawGraph(URIlist):
                                 G.add_edge(dicto[node1],'Thing')
                                 print "\nBFS: added",dicto[node1]
                             else:
-                                SemSim(node1,parent1)
+                                pathFinder(node1,parent1)
                                 for i in range(len(path)):
                                     nodeLeft=dicto[path[i][0]]
-                                    nodeRight=dicto[path[i][2]]                            
+                                    nodeRight=dicto[path[i][2]]
+                                    
                                     if path[i][1] == 'is a':
                                         edge=path[i][1]
                                     else:
@@ -273,19 +277,18 @@ def drawGraph(URIlist):
                                 G.add_edge(dicto[node2],'Thing')
                                 print "\nBFS: added",dicto[node2]
                             else:
-                                SemSim(node2,parent2)
+                                pathFinder(node2,parent2)
                                 for i in range(len(path)):
                                     nodeLeft=dicto[path[i][0]]
-                                    nodeRight=dicto[path[i][2]]                            
+                                    nodeRight=dicto[path[i][2]]
                                     if path[i][1] == 'is a':
                                         edge=path[i][1]
                                     else:
                                         edge=dicto[path[i][1]]
-
                                     if G.has_node(nodeLeft) is False:
                                         G.add_node(nodeLeft)
                                         print "\nBFS: added",nodeLeft
-                                    if G.has_node(nodeRight) is False:                                    
+                                    if G.has_node(nodeRight) is False:
                                         G.add_node(nodeRight)
                                         print "\nBFS: added",nodeRight
                                     G.add_edge(nodeLeft,nodeRight,color='#b94431')
@@ -308,28 +311,23 @@ def drawGraph(URIlist):
                         print "\nParents: added",node
                     if G.has_node(node) is True and i == CSpec-1:
                         G.add_edge(node,'Thing')
-                    if G.has_edge(prevNode,node) is False:
-                        G.add_edge(prevNode,node)
-
+                    G.add_edge(prevNode,node)
 
     drawLCS(URIlist)
-    print ''
-    drawBFS(URIlist)
-    print ''    
+    drawBFS(URIlist)    
     drawParents(URIlist)
-    print ''
     drawStart(URIlist)
-
+    
     data = json_graph.node_link_data(G)
     s = json.dumps(data)
     print '\nJSON:'
     print s
 
-    nx.write_dot(G,'file.gv')
-    os.system("gv\\bin\\dot.exe -Tpng -ograph.png file.gv")
-    print "Created graph.png"
+    nx.write_gexf(G,'file.gv')
+    #os.system("gv\\bin\\dot.exe -Tpng -ograph.png file.gv")
+    #print "Created graph.png"
 
-def measureDistance(node1,node2):
+def measureSim(node1,node2):
     "Leacock & Chodorow's semantic similarity measure"
     global path,pathlength
     if node1 != node2:
@@ -338,64 +336,195 @@ def measureDistance(node1,node2):
             parent1 = pathList[-1][-1][-1]
         else:
             parent1 = pathList[-1][-1]
+            
         findParents([[node2]])
         if len(pathList) > 1:
             parent2 = pathList[-1][-1][-1]
         else:
             parent2 = pathList[-1][-1]
+
         if parent1 == parent2:
             print "Both nodes in same cluster"
-            SemSim(node1,node2)
+            pathFinder(node1,node2)
             semDist = -math.log((float(pathlength+1)) / float(30))
             print semDist,'\n'
             return semDist
         else:
             print "Nodes from different clusters, via root"
-            SemSim(node1,parent1)
-            length1 = pathlength+1
-            SemSim(node2,parent2)
-            length2 = pathlength+1
+            if node1 != parent1:
+                pathFinder(node1,parent1)
+                length1 = pathlength+1
+            else:
+                length1 = 1
+            if node2 != parent2:
+                pathFinder(node2,parent2)
+                length2 = pathlength+1
+            else:
+                length2 = 1
+
             length = length1+length2+1
-            print length1,"+",length2,"=",length1+length2
             semDist = -math.log((float(length1 + length2)) / float(30))
             print semDist,'\n'
             return semDist
     else:
         print "node1 == node2"
         semDist = -math.log((float(1)) / float(30))
+        print semDist
         return semDist
 
-def clusterSim(nodes1,nodes2):
-    G = nx.Graph()
-    
-    color1 = "red"
-    color2 = "blue"
+def compareGraph(nodes1,nodes2,c1,c2):
+    global CG,simList
+    simList = []
+    '''
+    # Draw list1 + list2
+    nodesAll = [nodes1,nodes2]
+    for x in range(len(nodesAll)):
+        nodes = nodesAll[x] 
+        for i in range(len(nodes)):
+            uri1 = nodes[i]
+            if len(uri1)>0:
+                label1 = dicto[uri1]
+            else:
+                break
+            for j in range(i+1,len(nodes)):
+                uri2 = nodes[j]
+                if len(uri2)>0:
+                    label2 = dicto[uri2]
+                else:
+                    break
+                    
+                similarity = measureSim(uri1,uri2)
+                
+                findParents([[uri1]])
+                depth1 = len(pathList)
+                if len(pathList) > 1:
+                    parent1 = pathList[-1][-1][-1]
+                else:
+                    parent1 = pathList[-1][-1]            
+                CG.add_node(label1)
+                CG.node[label1]['color']=c1
+                CG.node[label1]['size']=depth1
+                CG.node[label1]['URI']=uri1
+                CG.node[label1]['type']=dicto[parent1]            
+
+                findParents([[uri2]])
+                if len(pathList) > 1:
+                    parent2 = pathList[-1][-1][-1]
+                else:
+                    parent2 = pathList[-1][-1]              
+                depth2 = len(pathList)
+                CG.add_node(label2)
+                CG.node[label2]['color']=c1
+                CG.node[label2]['size']=depth2
+                CG.node[label2]['URI']=uri2
+                CG.node[label2]['type']=dicto[parent2]
+
+                CG.add_edge(label1,label2)
+                CG.edge[label1][label2]['width']=round(similarity,5)
+                CG.edge[label1][label2]['label']= label1 + ' - ' + label2 + ": " + str(round(similarity,3))
+    '''       
+    # Compare both lists
     for i in range(len(nodes1)):
+        temp = []
         uri1 = nodes1[i]
-        label1 = dicto[nodes1[i]]
+        if len(uri1)>1:
+            label1 = dicto[uri1]
+        else:
+            break
         for j in range(len(nodes2)):
             uri2 = nodes2[j]
-            label2 = dicto[nodes2[j]]
+            if len(uri2)>1:
+                label2 = dicto[uri2]
+            else:
+                break
+            
+            similarity = measureSim(uri1,uri2)
+            findParents([[uri1]])
+            depth1 = len(pathList)
+            CG.add_node(label1)
+            CG.node[label1]['color']=c1
+            CG.node[label1]['size']=depth1
+            CG.node[label1]['URI']=uri1
 
-            distance = measureDistance(uri1,uri2)
-            G.add_node(label1)
-            G.node[label1]['color']=color1
-            G.node[label1]['URI']=uri1
+            findParents([[uri2]])
+            depth2 = len(pathList)
+            CG.add_node(label2)
+            CG.node[label2]['color']=c2
+            CG.node[label2]['size']=depth2
+            CG.node[label2]['URI']=uri2
             
-            G.add_node(label2)
-            G.node[label2]['color']=color2
-            G.node[label2]['URI']=uri2
-            
-            G.add_edge(label1,label2)
-            G.edge[label1][label2]['label']=distance            
-            
-    data = json_graph.node_link_data(G)
+            CG.add_edge(label1,label2)
+            CG.edge[label1][label2]['width']=round(similarity,5)
+            CG.edge[label1][label2]['weight']=round(similarity,5)            
+            CG.edge[label1][label2]['label']= label1 + ' - ' + label2 + ": " + str(round(similarity,3))
+
+            temp.append([similarity,uri1,uri2])
+        temp = sorted(temp,reverse=True)
+        simList.append(temp[0])
+
+def minDist(g1,g2):
+    global simList
+    simFile = open('similarity.csv','w')
+    for i in range(len(simList)):
+        simFile.write('"' + str(simList[i][0]) + '";"' + simList[i][1] + '";"' + simList[i][2] + '"\n')
+    simFile.close()
+
+def clusterGraph(list_of_graphs):
+    global CG
+    CG = nx.Graph()
+    colorlist = ['red','blue','green','yellow','orange']
+    for i in range(len(list_of_graphs)):
+        graph1 = list_of_graphs[i]
+        print graph1
+        for j in range(i+1,len(list_of_graphs)):
+            graph2 = list_of_graphs[j]
+            compareGraph(graph1,graph2,colorlist[i],colorlist[i+1])
+            minDist(graph1,graph2)
+    data = json_graph.node_link_data(CG)
     s = json.dumps(data)
-    print s
-    nx.write_dot(G,'cluster.gv')
-    os.system("gv\\bin\\dot.exe -Tpng -ocluster.png cluster.gv")
-    print "Created cluster.png"
+    log = open('json.txt','w')
+    log.write(s)
+    log.close()
+    nx.write_gexf(CG,'cluster.gexf')
 
+def csvToNodes(directory):
+    files = os.listdir(directory)
+    finalList = []  
+    for i in range(len(files)):
+        csvtje = csv.reader(open(str(directory) + str(files[i]),'rb'),delimiter=';',quotechar='"')
+        print files[i]
+        docList = []
+        for line in csvtje:
+                uriList=[]
+                temp = line[1].split(',')
+                for j in range(len(temp)):
+                    if len(temp)>0:
+                        uriList.append(str(temp[j]).replace(' ',''))
+                docList.append(uriList)
+        finalList.append(docList)
+    print len(finalList)
+    return finalList
+
+finalList = csvToNodes("log\\expert\\")
+print "Filled resp1, resp2 & resp3"
+algoList = csvToNodes("log\\DEF\\")
+print "Filled algo1-24"
+
+def clusterAll(algolist,resplist):
+    for i in range(len(algolist)):
+        currentAlgo = algolist[i]
+        for j in range(len(currentAlgo)):
+            clusterGraph([currentAlgo[j],resplist[j]])
+            os.rename('json.txt', "json" + str(i) + "." + str(j) + '.txt')
+            os.rename('cluster.gexf', "cluster" + str(i) + "." + str(j) + '.gexf')
+            os.rename('similarity.csv','similarity' + str(i) + "." + str(j) + '.csv')
+
+def clusterMan(resplist1,resplist2):
+    for i in range(len(resplist1)):
+            clusterGraph([resplist1[i],resplist2[i]])
+            os.rename('json.txt', "json" + str(i) + '.txt')
+            os.rename('cluster.gexf', "cluster" + str(i) + '.gexf')    
+            
 def showPath(list,start,target):
     global path,dicto
     GR = nx.Graph()
@@ -424,35 +553,6 @@ def showPath(list,start,target):
                 if node1 in hop[k] and node2 in hop[k] and hop[k] not in path:
                     path.append(hop[k])
     return path
-
-def findFlips(path,start,target):
-    flips = ""
-    count=0
-    for i in range(0,len(path)):
-        prevLeft = path[i-1][0]
-        prevRight = path[i-1][2]
-        
-        left = path[i][0]
-        right = path[i][2]
-
-        if left == prevRight:
-            flips += "U"
-        if right == prevRight:
-            flips += "D"
-        if right == prevLeft:
-            flips += "D"
-    print flips
-    for i in range(1,len(flips)):
-        prevLetter = flips[i-1]
-        letter = flips[i]
-        if letter == prevLetter:
-            count += 0
-        else:
-            count += 1
-    log = open('pathfinderlog.txt','a')                            
-    log.write('"directionflips:";"' + str(count) + '"\n')
-    log.close()
-    return count
 
 def getNodes(URI):
     # Empties context, returns context
@@ -538,15 +638,9 @@ def findLCS(URI1,URI2):
     LCS = [[findCommonParents(URI1,URI2)]]
     if LCS[0][0] != 0:
         findParents(LCS)
-        log = open('pathfinderlog.txt','a')                            
-        log.write('"LCS depth:' + str(pathList[0][0]) + '";"' + str(len(pathList)) + '"\n')
         print "LCS: " + str(dicto[pathList[0][0]]),"(" + str(dicto[URI1]) + "," + str(dicto[URI2]) + "): "
-        log.close()
     else:
         print "No LCS"
-        log = open('pathfinderlog.txt','a')
-        log.write('"LCS depth:-";"0"\n')
-        log.close()
 
 def findParents(URI):
     # Returns a pathList which includes all parents per hop in tuples [(child,parent),(child,parent)]
