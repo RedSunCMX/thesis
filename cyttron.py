@@ -19,7 +19,7 @@ stopset = set(stopwords.words('english'))
 stopset.add('http')
 stopset.add('www')
 stopset.add('nci')
-
+'''
 # --- GenSim Stuff
 dictionary = corpora.Dictionary.load('vsm\\normal\\normal-dictionary.dict')
 print dictionary
@@ -49,7 +49,7 @@ tfidfDesc = pickle.load(tfidfFile)
 tfidfFile.close()
 print "TF-IDF Descriptions:",len(tfidfDesc),"\n"
 # ---
-'''
+
 labelFile = open('pickle\\label.list','r')
 label = pickle.load(labelFile)
 labelFile.close()
@@ -237,6 +237,7 @@ def buildMatrix():
     algoDir = "log\\DEF\\"
     expertDir = "log\\expert\\"
     URIlist = [l[1] for l in label]
+    
     # Fill list with expert results
     files = os.listdir(expertDir)
     for i in range(len(files)):
@@ -390,8 +391,6 @@ def wordMatch(string):
 
 def descMatch(doc):
     global dictionary,desc,labelDict,index,tfidfDesc,foundDesc
-    log = open('log\descMatch.csv','a')
-    log.write('"' + doc + '";"')
     
     # 1 clean string, convert to bow, convert to tfidf
     cleanString = cleanDoc(doc)
@@ -406,37 +405,49 @@ def descMatch(doc):
     sim = sorted(sim,reverse=True)
 
     # Over 90%
+    log = open('log\descMatch-1-90.csv','a')
+    log.write('"' + doc + '";"')    
     found = []
     for i in range(len(sim)):
         if sim[i][0]-0.5 > 0.4:
             found.append(sim[i][1])
     print "over90 (" + str(len(found)) + ")"
     log.write(','.join(found))
-    log.write('";"')            
+    log.write('"\n')            
 
     # Over 75%
+    log = open('log\descMatch-2-75.csv','a')
+    log.write('"' + doc + '";"')        
     found = []
     for i in range(len(sim)):
         if sim[i][0]-0.5 > 0.25:
             found.append(sim[i][1])
     print "over75 (" + str(len(found)) + ")"
     log.write(','.join(found))
-    log.write('";"')    
+    log.write('"\n')
 
     # Top5
+    log = open('log\descMatch-3-top5.csv','a')
+    log.write('"' + doc + '";"')            
     found = sim[:5]
     print "best5 (" + str(len(found)) + ")"
     uris = [str(f[1]) for f in found]
     log.write(','.join(uris))
-    log.write('";"')    
+    log.write('"\n')    
 
+    # Top10
+    log = open('log\descMatch-4-top10.csv','a')
+    log.write('"' + doc + '";"')            
     found = sim[:10]
     print "best10 (" + str(len(found)) + ")"
     uris = [str(f[1]) for f in found]
     log.write(','.join(uris))
-    log.write('";"')    
+    log.write('"\n')
 
+    # Best 20%
     found = []
+    log = open('log\descMatch-5-20percent.csv','a')
+    log.write('"' + doc + '";"')
     number = sim[0][0]
     for i in range(len(sim)):
         if sim[i][0] > (0.8*number):
@@ -445,13 +456,15 @@ def descMatch(doc):
     log.write(','.join(found))
     log.write('";"')    
 
+    # Best 10%
     found=[]
+    log = open('log\descMatch-6-10percent.csv','a')
+    log.write('"' + doc + '";"')                
     for i in range(len(sim)):
         if sim[i][0] > (0.9*number):
             found.append(sim[i])
     print "percent10 (" + str(len(found)) + ")"
-
-    foundDesc = found
+    found = [f[1] for f in found]
     log.write(','.join(found))
     log.write('"\n')
     log.close()
@@ -584,20 +597,9 @@ def listStemWordNetMatch(list):
         stemWordNetWordMatch(string)
 
 def listDescMatch(lijst):
-    fd = open('log\descMatch.csv','w')
-    fd.close()    
     for i in range(len(lijst)):
         string = lijst[i]
         descMatch(string)
-
-def listDescWordNetMatch(list):
-    fd = open('log\descMatch.csv','w')
-    fd.close()      
-    for i in range(len(list)):
-        string = list[i]
-        print str(i+1),"of",str(len(list))
-        descWordNetMatch(string)
-        print ""
 
 # Read cyttron csv and create list
 def cyttron(listname):

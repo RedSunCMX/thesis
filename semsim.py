@@ -373,7 +373,7 @@ def measureSim(node1,node2):
         return semDist
 
 def compareGraph(nodes1,nodes2,c1,c2):
-    global CG,simList
+    global CG
     simList = []
     '''
     # Draw list1 + list2
@@ -458,12 +458,12 @@ def compareGraph(nodes1,nodes2,c1,c2):
             CG.edge[label1][label2]['weight']=round(similarity,5)            
             CG.edge[label1][label2]['label']= label1 + ' - ' + label2 + ": " + str(round(similarity,3))
 
-            temp.append([similarity,uri1,uri2])
+            temp.append([similarity,uri1,uri2])            
         temp = sorted(temp,reverse=True)
-        simList.append(temp[0])
-
-def minDist(g1,g2):
-    global simList
+        if len(temp)>0:
+            simList.append(temp[0])
+        else:
+            simList.append([0,'-','-'])
     simFile = open('similarity.csv','w')
     for i in range(len(simList)):
         simFile.write('"' + str(simList[i][0]) + '";"' + simList[i][1] + '";"' + simList[i][2] + '"\n')
@@ -479,7 +479,6 @@ def clusterGraph(list_of_graphs):
         for j in range(i+1,len(list_of_graphs)):
             graph2 = list_of_graphs[j]
             compareGraph(graph1,graph2,colorlist[i],colorlist[i+1])
-            minDist(graph1,graph2)
     data = json_graph.node_link_data(CG)
     s = json.dumps(data)
     log = open('json.txt','w')
