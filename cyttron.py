@@ -92,7 +92,6 @@ wikilist=[]
 iup = 0
 pathList = []
 
-#teststring
 repo="nci"
 endpoint="http://localhost:8080/openrdf-sesame/repositories/" + repo
 
@@ -100,7 +99,6 @@ sparql = SPARQLWrapper(endpoint)
 
 f = open('log\wordMatch.csv','w')
 f.close()
-
 fd = open('log\descMatch.csv','w')
 fd.close()
 
@@ -205,25 +203,7 @@ def URItoNodes(URIs,number):
             newList.append([list[i],False])
     print newList
 
-def csvToNodes():
-    directory = "log\\expert\\"
-    files = os.listdir(directory)
-    for i in range(len(files)):
-        newList=[]
-        csvtje = csv.reader(open(str(directory) + str(files[i]),'rb'),delimiter=';',quotechar='"')
-        print files[i]
-        for line in csvtje:
-                temp = line[1].split(',')
-                for j in range(1,len(temp)):
-                    uri = str(temp[j]).replace(' ','')
-                    currLabel = labelDict[uri]
-                    if currLabel.lower() in line[0].lower():
-                        newList.append([uri,True])
-                    else:
-                        newList.append([uri,False])
-        print newList
-
-def buildMatrix():
+def buildMatrix(algoDir):
     '''
     Confusion Matrix
     http://www2.cs.uregina.ca/~hamilton/courses/831/notes/confusion_matrix/confusion_matrix.html
@@ -234,7 +214,6 @@ def buildMatrix():
     f = open('log\\confmatrix.csv','w')
     f.write('"Algorithm";"Accuracy";"True Positives";"False Positives";"True Negatives";"False Negatives";"Precision"\n')
     f.close()
-    algoDir = "log\\DEF\\"
     expertDir = "log\\expert\\"
     URIlist = [l[1] for l in label]
     
@@ -259,7 +238,6 @@ def buildMatrix():
         algoList = []
         print files[i]
         
-        # print "\n",files[i]
         csvtje = csv.reader(open(str(algoDir) + str(files[i]),'rb'),delimiter=';',quotechar='"')
         for line in csvtje:
             tempList=[]
@@ -269,15 +247,15 @@ def buildMatrix():
                 tempList.append(uri)
             algoList.append(tempList)
 
-        if len(algoList) == 9:
-            algoList = algoList[1:]
+        print "algoList:",algoList
 
         A = 0.0
         B = 0.0
         C = 0.0
         D = 0.0
-        
+
         for j in range(len(algoList)):
+            print algoList[j]
             algoPOS = algoList[j]
             algoNEG = [item for item in URIlist if item not in algoList[j]]
             expertPOS = expertList[j]
@@ -307,7 +285,7 @@ def buildMatrix():
         print "FN",round(FN,4),
         print "P",round(P,4)
         
-        prList.append([files[i],AC,TP,FP,TN,FN,P])
+        prList.append([files[i],round(AC,5),round(TP,5),round(FP,5),round(TN,5),round(FN,5),round(P,5)])
     pprint(prList)
     pprint(matrix)
     for i in range(len(prList)):
@@ -413,7 +391,8 @@ def descMatch(doc):
             found.append(sim[i][1])
     print "over90 (" + str(len(found)) + ")"
     log.write(','.join(found))
-    log.write('"\n')            
+    log.write('"\n')
+    log.close()
 
     # Over 75%
     log = open('log\descMatch-2-75.csv','a')
@@ -425,6 +404,7 @@ def descMatch(doc):
     print "over75 (" + str(len(found)) + ")"
     log.write(','.join(found))
     log.write('"\n')
+    log.close()
 
     # Top5
     log = open('log\descMatch-3-top5.csv','a')
@@ -433,7 +413,8 @@ def descMatch(doc):
     print "best5 (" + str(len(found)) + ")"
     uris = [str(f[1]) for f in found]
     log.write(','.join(uris))
-    log.write('"\n')    
+    log.write('"\n')
+    log.close()
 
     # Top10
     log = open('log\descMatch-4-top10.csv','a')
@@ -443,6 +424,7 @@ def descMatch(doc):
     uris = [str(f[1]) for f in found]
     log.write(','.join(uris))
     log.write('"\n')
+    log.close()
 
     # Best 20%
     found = []
@@ -454,7 +436,8 @@ def descMatch(doc):
             found.append(sim[i][1])
     print "percent20 (" + str(len(found)) + ")"
     log.write(','.join(found))
-    log.write('";"')    
+    log.write('"\n')
+    log.close()
 
     # Best 10%
     found=[]

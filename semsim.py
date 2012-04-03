@@ -51,7 +51,6 @@ def pathFinder(URI1,URI2):
 
     # If it is, return the data
     if len(c.fetchall()) > 0:
-        print "Initial URI Path already exists!",start.rsplit('/')[-1],"-",target.rsplit('/')[-1]
         c.execute('SELECT * FROM thesis WHERE node1=? AND node2=?',(start,target))
         result = c.fetchall()
         c.close()
@@ -59,7 +58,7 @@ def pathFinder(URI1,URI2):
         target = result[0][1]
         pathlength = result[0][2]
         path = eval(result[0][3])
-        print "pathFinder | pathlength:",pathlength
+        # print "pathFinder | pathlength:",pathlength
         done = True
 
     # If it's not, start BFS algorithm
@@ -342,40 +341,38 @@ def measureSim(node1,node2):
             parent2 = pathList[-1][-1][-1]
         else:
             parent2 = pathList[-1][-1]
-
+            
         if parent1 == parent2:
-            print "Both nodes in same cluster"
+            # print "Both nodes in same cluster"
             pathFinder(node1,node2)
             semDist = -math.log((float(pathlength+1)) / float(30))
-            print semDist,'\n'
             return semDist
         else:
-            print "Nodes from different clusters, via root"
+            # print "Nodes from different clusters, via root"
             if node1 != parent1:
                 pathFinder(node1,parent1)
-                length1 = pathlength+1
+                length1 = pathlength
             else:
+                # print "node1 == parent1"
                 length1 = 1
             if node2 != parent2:
                 pathFinder(node2,parent2)
-                length2 = pathlength+1
+                length2 = pathlength
             else:
+                # print "node2 == parent2"
                 length2 = 1
-
             length = length1+length2+1
-            semDist = -math.log((float(length1 + length2)) / float(30))
-            print semDist,'\n'
+            semDist = -math.log((float(length)) / float(30))
             return semDist
     else:
-        print "node1 == node2"
+        # print "node1 == node2"
         semDist = -math.log((float(1)) / float(30))
-        print semDist
         return semDist
 
-def compareGraph(nodes1,nodes2,c1,c2):
-    global CG
-    simList = []
-    '''
+def drawNetwork(nodes1,nodes2):
+    CG = nx.Graph()
+    c1 = 'red'
+    c2 = 'blue'
     # Draw list1 + list2
     nodesAll = [nodes1,nodes2]
     for x in range(len(nodesAll)):
@@ -422,7 +419,11 @@ def compareGraph(nodes1,nodes2,c1,c2):
                 CG.add_edge(label1,label2)
                 CG.edge[label1][label2]['width']=round(similarity,5)
                 CG.edge[label1][label2]['label']= label1 + ' - ' + label2 + ": " + str(round(similarity,3))
-    '''       
+
+def compareGraph(nodes1,nodes2):
+    global CG
+    simList = []
+                
     # Compare both lists
     for i in range(len(nodes1)):
         temp = []
@@ -437,54 +438,91 @@ def compareGraph(nodes1,nodes2,c1,c2):
                 label2 = dicto[uri2]
             else:
                 break
-            
+
             similarity = measureSim(uri1,uri2)
-            findParents([[uri1]])
-            depth1 = len(pathList)
-            CG.add_node(label1)
-            CG.node[label1]['color']=c1
-            CG.node[label1]['size']=depth1
-            CG.node[label1]['URI']=uri1
-
-            findParents([[uri2]])
-            depth2 = len(pathList)
-            CG.add_node(label2)
-            CG.node[label2]['color']=c2
-            CG.node[label2]['size']=depth2
-            CG.node[label2]['URI']=uri2
+            temp.append([similarity,uri1,uri2])
             
-            CG.add_edge(label1,label2)
-            CG.edge[label1][label2]['width']=round(similarity,5)
-            CG.edge[label1][label2]['weight']=round(similarity,5)            
-            CG.edge[label1][label2]['label']= label1 + ' - ' + label2 + ": " + str(round(similarity,3))
-
-            temp.append([similarity,uri1,uri2])            
         temp = sorted(temp,reverse=True)
         if len(temp)>0:
             simList.append(temp[0])
         else:
             simList.append([0,'-','-'])
+            
+    for i in range(len(nodes2)):
+        temp2 = []
+        uri1 = nodes2[i]
+        if len(uri1)>1:
+            label1 = dicto[uri1]
+        else:
+            break
+        for j in range(len(nodes1)):
+            uri2 = nodes1[j]
+            if len(uri2)>1:
+                label2 = dicto[uri2]
+            else:
+                break
+
+            similarity = measureSim(uri1,uri2)
+            temp2.append([similarity,uri2,uri1])
+
+        temp2 = sorted(temp2,reverse=True)
+        if len(temp2)>0:
+            if temp2[0] not in simList:
+                simList.append(temp2[0])
+        else:
+            simList.append([0,"-","-"])
+    
     simFile = open('similarity.csv','w')
     for i in range(len(simList)):
+        uri1 = simList[i][1]
+        uri2 = simList[i][2]
+        if len(uri1)>1:
+            label1 = dicto[uri1]
+        else:
+            break
+        if len(uri2)>1:
+            label2 = dicto[uri2]
+        else:
+            break
+
+        findParents([[uri1]])
+        depth1 = len(pathList)
+        CG.add_node(label1)
+        CG.node[label1]['color']='red'
+        CG.node[label1]['size']=depth1
+        CG.node[label1]['URI']=uri1
+
+        findParents([[uri2]])
+        depth2 = len(pathList)
+        CG.add_node(label2)
+        CG.node[label2]['color']='blue'
+        CG.node[label2]['size']=depth2
+        CG.node[label2]['URI']=uri2
+
+        CG.add_edge(label1,label2)
+        CG.edge[label1][label2]['width']=round(similarity,5)
+        CG.edge[label1][label2]['weight']=round(similarity,5)            
+        CG.edge[label1][label2]['label']= label1 + ' - ' + label2 + ": " + str(round(similarity,3))
+        
         simFile.write('"' + str(simList[i][0]) + '";"' + simList[i][1] + '";"' + simList[i][2] + '"\n')
     simFile.close()
 
 def clusterGraph(list_of_graphs):
     global CG
     CG = nx.Graph()
-    colorlist = ['red','blue','green','yellow','orange']
     for i in range(len(list_of_graphs)):
         graph1 = list_of_graphs[i]
-        print graph1
         for j in range(i+1,len(list_of_graphs)):
             graph2 = list_of_graphs[j]
-            compareGraph(graph1,graph2,colorlist[i],colorlist[i+1])
+            compareGraph(graph1,graph2)
+    '''
     data = json_graph.node_link_data(CG)
     s = json.dumps(data)
     log = open('json.txt','w')
     log.write(s)
     log.close()
     nx.write_gexf(CG,'cluster.gexf')
+    '''
 
 def csvToNodes(directory):
     files = os.listdir(directory)
@@ -504,9 +542,91 @@ def csvToNodes(directory):
     print len(finalList)
     return finalList
 
+def getDepth(list):
+    resultList = []
+    newList=[]
+    for i in range(len(list)):
+        for j in range(len(list[i])):
+            if 'http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#' in list[i][j]:
+                findParents([[list[i][j]]])
+                list[i][j] = len(pathList)
+    for i in range(len(list)):
+            total = 0
+            avg = 0
+            for j in range(len(list[i])):
+                if type(list[i][j]) == int:
+                    total += int(list[i][j])
+                else:
+                    total += 0
+            avg = float(total) / float(len(list[i]))
+            resultList.append(avg)
+    number = 0
+    for i in range(len(resultList)):
+        number += resultList[i]
+    print number/len(resultList)
+
+def getSim(directory):
+    finalList = []
+    allFiles = os.listdir(directory)
+    files = []
+    for i in range(len(allFiles)):
+        if '.csv' in allFiles[i]:
+            files.append(allFiles[i])
+    for i in range(0,len(files),8):
+        currentAlgo = files[i:i+8]
+        similarityList = []
+        for k in range(len(currentAlgo)):
+            csvtje = csv.reader(open(str(directory) + str(currentAlgo[k]),'rb'),delimiter=';',quotechar='"')
+            for line in csvtje:
+                similarityList.append(line[0])
+        
+        # Median
+        if len(similarityList) > 0:
+            values = sorted(similarityList)
+            if len(values) % 2 == 1:
+                median = values[(len(values)+1)/2-1]
+            else:
+                lower = float(values[len(values)/2-1])
+                upper = float(values[len(values)/2])
+                median = (float(lower + upper)) / 2
+        else:
+            median = 0.0
+
+        # Mean
+        sumNr = 0
+        if len(similarityList) > 0:
+            for j in range(len(similarityList)):
+                sumNr += float(similarityList[j])
+            average = float(sumNr) / float(len(similarityList))
+        else:
+            average = 0.0
+
+        # Standard deviation
+        sumNr2 = 0
+        if len(similarityList) > 0:
+            for j in range(len(similarityList)):
+                sumNr2 += float(float(float(similarityList[j])-float(average))*float(float(similarityList[j])-float(average)))
+            stdev = math.sqrt(float(sumNr2)/float(len(similarityList)))
+        else:
+            stdev = 0.0
+            
+        finalList.append([str(files[i]),median,average,stdev])
+            
+    log = open('similarityStuff.csv','w')
+    log.write('"source";"median";"mean";"standard deviation"\n')
+    log.close()
+    for k in range(len(finalList)):
+        # print '"' + str(finalList[i]) + '";"' + str(finalList[i+1]) + '";"' + str(finalList[i+2]) + '";"' + str(finalList[i+3]) + '"\n'
+        log = open('similarityStuff.csv','a')
+        log.write('"' + str(finalList[k][0]) + '";"' + str(finalList[k][1]) + '";"' + str(finalList[k][2]) + '";"' + str(finalList[k][3]) + '"\n')
+        log.close()
+
 finalList = csvToNodes("log\\expert\\")
+resp1 = finalList[0]
+resp2 = finalList[1]
+resp3 = finalList[2]
 print "Filled resp1, resp2 & resp3"
-algoList = csvToNodes("log\\DEF\\")
+algoList = csvToNodes("log\\DEF-TF\\")
 print "Filled algo1-24"
 
 def clusterAll(algolist,resplist):
@@ -514,15 +634,18 @@ def clusterAll(algolist,resplist):
         currentAlgo = algolist[i]
         for j in range(len(currentAlgo)):
             clusterGraph([currentAlgo[j],resplist[j]])
+            '''
             os.rename('json.txt', "json" + str(i) + "." + str(j) + '.txt')
             os.rename('cluster.gexf', "cluster" + str(i) + "." + str(j) + '.gexf')
+            '''
             os.rename('similarity.csv','similarity' + str(i) + "." + str(j) + '.csv')
 
 def clusterMan(resplist1,resplist2):
     for i in range(len(resplist1)):
             clusterGraph([resplist1[i],resplist2[i]])
-            os.rename('json.txt', "json" + str(i) + '.txt')
-            os.rename('cluster.gexf', "cluster" + str(i) + '.gexf')    
+            # os.rename('json.txt', "json" + str(i) + '.txt')
+            # os.rename('cluster.gexf', "cluster" + str(i) + '.gexf')
+            os.rename('similarity.csv','similarity' + str(i) + '.csv')
             
 def showPath(list,start,target):
     global path,dicto
