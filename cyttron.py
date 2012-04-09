@@ -203,7 +203,7 @@ def URItoNodes(URIs,number):
             newList.append([list[i],False])
     print newList
 
-def buildMatrix(algoDir):
+def buildMatrix(algoDir,expertDir):
     '''
     Confusion Matrix
     http://www2.cs.uregina.ca/~hamilton/courses/831/notes/confusion_matrix/confusion_matrix.html
@@ -214,7 +214,6 @@ def buildMatrix(algoDir):
     f = open('log\\confmatrix.csv','w')
     f.write('"Algorithm";"Accuracy";"True Positives";"False Positives";"True Negatives";"False Negatives";"Precision"\n')
     f.close()
-    expertDir = "log\\expert\\"
     URIlist = [l[1] for l in label]
     
     # Fill list with expert results
@@ -230,7 +229,6 @@ def buildMatrix(algoDir):
                 tempList.append(uri)
             print len(tempList),"URIs"                
             expertList.append(tempList)
-    print "expertList:",expertList
 
     # Fill list with algo results
     files = os.listdir(algoDir)
@@ -247,15 +245,12 @@ def buildMatrix(algoDir):
                 tempList.append(uri)
             algoList.append(tempList)
 
-        print "algoList:",algoList
-
         A = 0.0
         B = 0.0
         C = 0.0
         D = 0.0
 
         for j in range(len(algoList)):
-            print algoList[j]
             algoPOS = algoList[j]
             algoNEG = [item for item in URIlist if item not in algoList[j]]
             expertPOS = expertList[j]
@@ -265,6 +260,7 @@ def buildMatrix(algoDir):
             B += float(len(set(algoPOS).intersection(expertNEG)))
             C += float(len(set(algoNEG).intersection(expertPOS)))
             D += float(len(set(algoPOS).intersection(expertPOS)))
+            print float(len(set(algoPOS).intersection(expertPOS)))
 
         matrix.append([[A,B],[C,D]])
         
@@ -278,16 +274,14 @@ def buildMatrix(algoDir):
         else:
             P = 0
         
-        print "AC",round(AC,4),
-        print "TP",round(TP,4),
-        print "FP",round(FP,4),
-        print "TN",round(TN,4),
-        print "FN",round(FN,4),
-        print "P",round(P,4)
-        
-        prList.append([files[i],round(AC,5),round(TP,5),round(FP,5),round(TN,5),round(FN,5),round(P,5)])
-    pprint(prList)
-    pprint(matrix)
+        print "AC",AC,
+        print "TP",TP,
+        print "FP",FP,
+        print "TN",TN,
+        print "FN",FN,
+        print "P",P
+        print matrix[i]
+        prList.append([files[i],round(AC,9),round(TP,9),round(FP,9),round(TN,9),round(FN,9),round(P,9)])
     for i in range(len(prList)):
         f = open('log\\confmatrix.csv','a')
         f.write('"' + str(prList[i][0]) + '";"' + str(prList[i][1]) + '";"' + str(prList[i][2]) + '";"' + str(prList[i][3]) + '";"' + str(prList[i][4]) + '";"' + str(prList[i][5]) + '";"' + str(prList[i][6]) + '"\n')

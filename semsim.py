@@ -11,6 +11,9 @@ import os
 from Queue import Queue
 import json
 import csv
+import pickle
+
+wordMatchDict = pickle.load(open('wordMatchDict.dict','r'))
 
 GR = nx.Graph()
 context = []
@@ -368,57 +371,105 @@ def measureSim(node1,node2):
         # print "node1 == node2"
         semDist = -math.log((float(1)) / float(30))
         return semDist
+    
+typeDict = {}
+typeDict['Abnormal Cell'] = "#C749DC"
+typeDict['Activity'] = "#75D74F"
+typeDict['Anatomic Structure, System, or Substance'] = "#D64C33"
+typeDict['Biochemical Pathway'] = "#92C0D9"
+typeDict['Biological Process'] = "#4A4628"
+typeDict['Chemotherapy Regimen or Agent Combination'] = "#582D7E"
+typeDict['Conceptual Entity'] = "#70D7AB"
+typeDict['Diagnostic or Prognostic Factor'] = "#CA4572"
+typeDict['Diagnostic, Therapeutic, or Research Equipment'] = "#CECB4D"
+typeDict['Disease, Disorder or Finding'] = "#482B43"
+typeDict['Drug, Food, Chemical or Biomedical Material'] = "#C3853E"
+typeDict['Experimental Organism Anatomical Concept'] = "#5F893F"
+typeDict['Experimental Organism Diagnosis'] = "#CB909A"
+typeDict['Gene'] = "#9287DD"
+typeDict['Gene Product'] = "#80362E"
+typeDict['Molecular Abnormality'] = "#C9C99F"
+typeDict['NCI Administrative Concept'] = "#547772"
+typeDict['Organism'] = "#CA56AF"
+typeDict['Property or Attribute'] = "#636998"
+typeDict['Retired Concept'] = "#653DCE"
 
 def drawNetwork(nodes1,nodes2):
+    global typeDict
     CG = nx.Graph()
-    c1 = 'red'
-    c2 = 'blue'
-    # Draw list1 + list2
-    nodesAll = [nodes1,nodes2]
+
+    # Add nodes
+    for i in range(len(nodes1)):
+        uri1 = nodes1[i]
+        if len(uri1)>0:
+            label1 = dicto[nodes1[i]]
+        else:
+            break            
+        
+        findParents([[uri1]])
+        depth1 = len(pathList)
+        if len(pathList) > 1:
+            parent1 = pathList[-1][-1][-1]
+        else:
+            parent1 = pathList[-1][-1]
+            
+        CG.add_node(uri1)
+        CG.node[uri1]['color']='#E58583'
+        CG.node[uri1]['label']=label1
+        CG.node[uri1]['size']=depth1
+        CG.node[uri1]['URI']=uri1
+        CG.node[uri1]['type']=dicto[parent1]
+
+    for j in range(len(nodes2)):
+        uri2 = nodes2[j]
+        if len(uri2)>0:
+            label2 = dicto[nodes2[j]]
+        else:
+            break
+        
+        findParents([[uri2]])
+        depth2 = len(pathList)
+        if len(pathList) > 1:
+            parent2 = pathList[-1][-1][-1]
+        else:
+            parent2 = pathList[-1][-1]
+
+        if CG.has_node(uri2) is False:            
+            CG.add_node(uri2)
+            CG.node[uri2]['label']=label2
+            CG.node[uri2]['color']='#73C2D9'
+            CG.node[uri2]['size']=depth2
+            CG.node[uri2]['URI']=uri2
+            CG.node[uri2]['type']=dicto[parent2]
+        else:
+            CG.node[uri2]['color']='#8EAD62'
+            
+    # Add edges
+    nodesAll = nodes1 + nodes2
     for x in range(len(nodesAll)):
-        nodes = nodesAll[x] 
-        for i in range(len(nodes)):
-            uri1 = nodes[i]
+        uri1 = nodesAll[x]
+        for y in range(x+1,len(nodesAll)):
+            uri2 = nodesAll[y]
             if len(uri1)>0:
                 label1 = dicto[uri1]
             else:
                 break
-            for j in range(i+1,len(nodes)):
-                uri2 = nodes[j]
-                if len(uri2)>0:
-                    label2 = dicto[uri2]
-                else:
-                    break
+            if len(uri2)>0:
+                label2 = dicto[uri2]
+            else:
+                break
                     
-                similarity = measureSim(uri1,uri2)
-                
-                findParents([[uri1]])
-                depth1 = len(pathList)
-                if len(pathList) > 1:
-                    parent1 = pathList[-1][-1][-1]
-                else:
-                    parent1 = pathList[-1][-1]            
-                CG.add_node(label1)
-                CG.node[label1]['color']=c1
-                CG.node[label1]['size']=depth1
-                CG.node[label1]['URI']=uri1
-                CG.node[label1]['type']=dicto[parent1]            
+            similarity = measureSim(uri1,uri2)
+            CG.add_edge(uri1,uri2)
+            CG.edge[uri1][uri2]['width']=round(similarity,5)
+            CG.edge[uri1][uri2]['label']= label1 + ' - ' + label2 + ": " + str(round(similarity,3))
 
-                findParents([[uri2]])
-                if len(pathList) > 1:
-                    parent2 = pathList[-1][-1][-1]
-                else:
-                    parent2 = pathList[-1][-1]              
-                depth2 = len(pathList)
-                CG.add_node(label2)
-                CG.node[label2]['color']=c1
-                CG.node[label2]['size']=depth2
-                CG.node[label2]['URI']=uri2
-                CG.node[label2]['type']=dicto[parent2]
-
-                CG.add_edge(label1,label2)
-                CG.edge[label1][label2]['width']=round(similarity,5)
-                CG.edge[label1][label2]['label']= label1 + ' - ' + label2 + ": " + str(round(similarity,3))
+    data = json_graph.node_link_data(CG)
+    s = json.dumps(data)
+    log = open('json.txt','w')
+    log.write(s)
+    log.close()
+    nx.write_gexf(CG,'cluster.gexf')
 
 def compareGraph(nodes1,nodes2):
     global CG
@@ -515,14 +566,12 @@ def clusterGraph(list_of_graphs):
         for j in range(i+1,len(list_of_graphs)):
             graph2 = list_of_graphs[j]
             compareGraph(graph1,graph2)
-    '''
     data = json_graph.node_link_data(CG)
     s = json.dumps(data)
     log = open('json.txt','w')
     log.write(s)
     log.close()
     nx.write_gexf(CG,'cluster.gexf')
-    '''
 
 def csvToNodes(directory):
     files = os.listdir(directory)
@@ -565,6 +614,27 @@ def getDepth(list):
         number += resultList[i]
     print number/len(resultList)
 
+def getSingleSim(directory):
+    finalList = []
+    allFiles = os.listdir(directory)
+    files = []
+    results = []
+    for i in range(len(allFiles)):
+        if '.csv' in allFiles[i]:
+            files.append(allFiles[i])
+    for j in range(len(files)):
+        newlist = []
+        print files[j],
+        csvtje = csv.reader(open(str(directory) + str(files[j]),'rb'),delimiter=';',quotechar='"')
+        for line in csvtje:
+            newlist.append(float(line[0]))
+        if len(newlist)>1:
+            results.append([numpy.average(newlist),files[j]])
+        else:
+            print "nothing"
+    results = sorted(results,reverse=True)
+    print results[:10]
+
 def getSim(directory):
     finalList = []
     allFiles = os.listdir(directory)
@@ -573,6 +643,7 @@ def getSim(directory):
         if '.csv' in allFiles[i]:
             files.append(allFiles[i])
     for i in range(0,len(files),8):
+        print files[i]
         currentAlgo = files[i:i+8]
         similarityList = []
         for k in range(len(currentAlgo)):
@@ -585,6 +656,7 @@ def getSim(directory):
             values = sorted(similarityList)
             if len(values) % 2 == 1:
                 median = values[(len(values)+1)/2-1]
+                print median
             else:
                 lower = float(values[len(values)/2-1])
                 upper = float(values[len(values)/2])
@@ -610,24 +682,64 @@ def getSim(directory):
         else:
             stdev = 0.0
             
-        finalList.append([str(files[i]),median,average,stdev])
+        finalList.append([wordMatchDict[files[i]],median,average,stdev])
             
     log = open('similarityStuff.csv','w')
     log.write('"source";"median";"mean";"standard deviation"\n')
     log.close()
     for k in range(len(finalList)):
-        # print '"' + str(finalList[i]) + '";"' + str(finalList[i+1]) + '";"' + str(finalList[i+2]) + '";"' + str(finalList[i+3]) + '"\n'
         log = open('similarityStuff.csv','a')
         log.write('"' + str(finalList[k][0]) + '";"' + str(finalList[k][1]) + '";"' + str(finalList[k][2]) + '";"' + str(finalList[k][3]) + '"\n')
+        print '"' + str(finalList[k][0]) + '";"' + str(finalList[k][1]) + '";"' + str(finalList[k][2]) + '";"' + str(finalList[k][3]) + '"\n'
         log.close()
 
-finalList = csvToNodes("log\\expert\\")
-resp1 = finalList[0]
-resp2 = finalList[1]
-resp3 = finalList[2]
+rand1 = csvToNodes("log\\RANDOM\\")
+resp1 = csvToNodes("log\\expert1\\")
+resp2 = csvToNodes("log\\expert2\\")
+resp3 = csvToNodes("log\\expert3\\")
+
 print "Filled resp1, resp2 & resp3"
-algoList = csvToNodes("log\\DEF-TF\\")
+algoList = csvToNodes("log\\WM\\")
 print "Filled algo1-24"
+
+      
+def countTypes(list):
+    myFile=open('log\\types.csv','w')
+    parentList = []
+    for i in range(len(list)):
+        for j in range(len(list[i])):
+            currentAnnotation = list[i][j]
+            if len(currentAnnotation) > 1:
+                findParents([[currentAnnotation]])
+                if len(pathList) > 1:
+                    parent = dicto[pathList[-1][-1][-1]]
+                else:
+                    parent = dicto[pathList[-1][-1]]
+                parentList.append(parent)
+            else:
+                continue
+    dictionary = {}
+    total= len(parentList)
+    for i in set(parentList):
+        dictionary[i] = parentList.count(i)
+    parentList = []
+    for item in dictionary:
+        parentList.append([round(float(dictionary[item])/float(total)*100,2),dictionary[item],item])
+    parentList = sorted(parentList,reverse=True)
+    for i in range(len(parentList)):
+        myFile.write('"' + str(parentList[i][2]) + '";"' + str(parentList[i][1]) + '";"' + str(parentList[i][0]) + '%"\n')
+    myFile.close()
+    
+def doStd(list):
+	for i in range(len(list)):
+		getDepth(list[i])
+	print ''
+	for i in range(len(list)):
+		total = 0
+		for j in range(len(list[i])):
+			if len(list[i][j]) > 1:
+				total += numpy.std(list[i][j])
+		print total / 8.0
 
 def clusterAll(algolist,resplist):
     for i in range(len(algolist)):
@@ -646,7 +758,29 @@ def clusterMan(resplist1,resplist2):
             # os.rename('json.txt', "json" + str(i) + '.txt')
             # os.rename('cluster.gexf', "cluster" + str(i) + '.gexf')
             os.rename('similarity.csv','similarity' + str(i) + '.csv')
-            
+
+def clusterSelf(nodes):
+    totalAverage = 0
+    for i in range(len(nodes)):
+        currentDoc = nodes[i]
+        average = 0
+        counter = 0
+        for j in range(len(currentDoc)):
+            for k in range(j+1,len(currentDoc)):
+                node1 = currentDoc[j]
+                node2 = currentDoc[k]
+                similarity = measureSim(node1,node2)
+                average += similarity
+                counter += 1
+        if counter > 0:
+            average = float(average)/float(counter)
+        else:
+            average = 0
+        totalAverage += average
+    totalAverage = totalAverage / 8.0
+    print totalAverage
+
+                    
 def showPath(list,start,target):
     global path,dicto
     GR = nx.Graph()
@@ -796,6 +930,11 @@ def findParents(URI):
         iup=0
         pathList = URI
         return pathList
+    
+def randomAnnotation():
+    for i in range(random.randrange(3,9)):
+        print cyttron.label[random.randrange(0,len(cyttron.label))][1] + ",",
+    print "\n"
 
 def findCommonParents(URI1,URI2):
     global done,result1,result2,pathList
